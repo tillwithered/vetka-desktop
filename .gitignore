@@ -1,0 +1,7 @@
+.worktrees/
+node_modules/
+.next/
+.env*
+!.env.example
+coverage/
+*.tsbuildinfo
