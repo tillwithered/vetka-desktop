@@ -76,6 +76,11 @@ export class DollRepository {
     return row ? mapDoll(row) : null;
   }
 
+  findByMattelSku(mattelSku: string): Doll | null {
+    const row = this.db.prepare('select * from dolls where lower(mattel_sku) = lower(?) limit 1').get(mattelSku) as DollRow | undefined;
+    return row ? mapDoll(row) : null;
+  }
+
   list(filter: DollListFilter = {}): Doll[] {
     const parsed = dollListFilterSchema.parse(filter);
     const conditions: string[] = [];
