@@ -37,4 +37,16 @@ describe('collectDoll', () => {
     expect(result.regions.amazon_us).toMatchObject({ status: 'verified', asin: 'B0CXYZ1234' });
     expect(result.regions.amazon_us?.reviewCandidates).toEqual([]);
   });
+
+  it('does not trust a known listing when it no longer passes catalog identity', async () => {
+    const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High unrelated doll</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => product), search: vi.fn(async () => '') };
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'request-3', dataDir: 'C:/data', doll: { id: 'doll-1', name: 'Willow Thorne', mattelSku: 'JMB92' },
+      knownListings: [{ region: 'amazon_us', asin: 'B0CXYZ1234', url: 'https://www.amazon.com/dp/B0CXYZ1234', confirmed: true }], regions: ['amazon_us'],
+      catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(result.regions.amazon_us).toMatchObject({ status: 'no_price', asin: null });
+  });
 });

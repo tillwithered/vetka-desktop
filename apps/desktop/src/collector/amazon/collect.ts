@@ -23,10 +23,19 @@ export async function collectDoll(
 
     for (const listing of listings) {
       progress('checking', region);
-      const page = parseAmazonProductPage(await driver.openProduct(region, listing.url), {
+      const html = await driver.openProduct(region, listing.url);
+      const page = parseAmazonProductPage(html, {
         region,
         expectedAsin: listing.asin,
       });
+      if (page.status === 'verified' && request.catalogRules) {
+        const match = matchCatalogOffer(request.catalogRules, {
+          title: page.title,
+          evidenceText: `${page.title ?? ''} ${html}`,
+          condition: page.condition,
+        });
+        if (match.status !== 'verified') continue;
+      }
       result.regions[region] = { ...page, region, url: listing.url, reviewCandidates: [] };
       if (page.status === 'verified' || page.status === 'captcha_required') {
         if (page.status === 'captcha_required') progress('captcha_required', region);
