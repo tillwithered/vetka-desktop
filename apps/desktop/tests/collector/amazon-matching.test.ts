@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchAmazonProduct } from '@/collector/amazon/matching';
+import { matchAmazonProduct, matchCatalogOffer } from '@/collector/amazon/matching';
 
 const doll = {
   name: 'Monster High Draculaura Core Refresh Doll',
@@ -24,5 +24,21 @@ describe('matchAmazonProduct', () => {
 
   it('never verifies from title similarity alone', () => {
     expect(matchAmazonProduct(doll, { title: 'Mattel Monster High Draculaura Core Refresh G3 Doll' })).toMatchObject({ status: 'needs_review' });
+  });
+});
+
+describe('matchCatalogOffer', () => {
+  const rules = { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne', 'Moonspell Magic'], rejectTerms: ['used', 'outfit'] };
+
+  it('requires SKU evidence, one title term, New condition, and no reject term', () => {
+    expect(matchCatalogOffer(rules, {
+      title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB92 Monster High', condition: 'New',
+    })).toMatchObject({ status: 'verified' });
+    expect(matchCatalogOffer(rules, {
+      title: 'Monster High Willow Thorne outfit', evidenceText: 'Model JMB92 Monster High', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'reject_term' });
+    expect(matchCatalogOffer(rules, {
+      title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB93 Monster High', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'mattel_sku_missing' });
   });
 });

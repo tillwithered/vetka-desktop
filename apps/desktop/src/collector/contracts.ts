@@ -1,5 +1,6 @@
 import type { AmazonPageResult } from './amazon/product-page';
 import type { AmazonCandidate } from './amazon/search';
+import type { CatalogOfferRules } from './amazon/matching';
 import type { AmazonRegion } from '@/shared/contracts';
 
 export type CollectorDollIdentity = {
@@ -28,6 +29,7 @@ export type CollectorRequest = {
   doll: CollectorDollIdentity;
   knownListings: KnownAmazonListing[];
   regions: AmazonRegion[];
+  catalogRules?: CatalogOfferRules;
 };
 
 export type CollectorRequestInput = Omit<CollectorRequest, 'type' | 'requestId' | 'regions'> & {

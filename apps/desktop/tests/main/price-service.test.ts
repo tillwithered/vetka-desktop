@@ -5,6 +5,7 @@ import { runMigrations } from '@/main/db/migrate';
 import { DollRepository } from '@/main/dolls/repository';
 import { PriceRepository } from '@/main/prices/repository';
 import { PriceService } from '@/main/prices/service';
+import type { CatalogEntry } from '@/main/catalog/repository';
 import type { CollectorDollResult } from '@/collector/contracts';
 
 describe('PriceService', () => {
@@ -23,5 +24,21 @@ describe('PriceService', () => {
     await service.refreshDoll(doll.id, ['amazon_us']);
 
     expect(prices.current(doll.id)[0]).toMatchObject({ priceMinor: 2499, priceKztMinor: 1_284_986 });
+  });
+
+  it('passes catalog identity rules to the collector without creating candidates', async () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const doll = new DollRepository(db).create({ name: 'Willow Thorne', mattelSku: 'JMB92' });
+    const prices = new PriceRepository(db);
+    const collector = { refreshDoll: vi.fn(async () => ({ requestId: 'r1', regions: {} })) };
+    const service = new PriceService({ db, prices, collector, dataDir: 'C:/data', getRate: () => 514_200_000 });
+    const entry: CatalogEntry = { mattelSku: 'JMB92', name: 'Willow Thorne', characterName: 'Willow Thorne', lineName: 'Moonspell Magic', productType: 'regular', monitorStatus: 'active', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'], searchQuery: 'Monster High JMB92', sourceUrl: null, sourceCheckedAt: '2026-07-10', evidence: 'test', dollId: doll.id };
+
+    await service.refreshCatalogEntry(entry, ['amazon_us']);
+
+    expect(collector.refreshDoll).toHaveBeenCalledWith(expect.objectContaining({
+      doll: expect.objectContaining({ mattelSku: 'JMB92' }),
+      catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+    }));
   });
 });

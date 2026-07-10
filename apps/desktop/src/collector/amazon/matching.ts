@@ -20,6 +20,12 @@ export type MatchDecision = {
   reason: string;
 };
 
+export type CatalogOfferRules = {
+  mattelSku: string;
+  requiredTerms: readonly string[];
+  rejectTerms: readonly string[];
+};
+
 const negativeAccessoryPattern = /\b(accessor(?:y|ies)|replacement|shoes?|boots?|clothes?|outfits?|stand|case|bag|wig|furniture|vehicle)\b/i;
 const normalized = (value: string | null | undefined) => value?.trim().toLowerCase() ?? '';
 const exact = (left: string | null | undefined, right: string | null | undefined) => Boolean(normalized(left) && normalized(left) === normalized(right));
@@ -50,4 +56,21 @@ export function matchAmazonProduct(doll: DollIdentity, candidate: AmazonIdentity
   return score >= 85
     ? { status: 'needs_review', score, reason: 'title_similarity' }
     : { status: 'rejected', score, reason: 'insufficient_identity' };
+}
+
+export function matchCatalogOffer(
+  rules: CatalogOfferRules,
+  candidate: { title: string | null; evidenceText: string; condition: 'New' | null },
+): MatchDecision {
+  const evidence = normalized(candidate.evidenceText);
+  const title = normalized(candidate.title);
+  if (!evidence.includes(normalized(rules.mattelSku))) return { status: 'rejected', score: 0, reason: 'mattel_sku_missing' };
+  if (candidate.condition !== 'New') return { status: 'rejected', score: 0, reason: 'condition_not_new' };
+  if (rules.rejectTerms.some((term) => title.includes(normalized(term)) || evidence.includes(normalized(term)))) {
+    return { status: 'rejected', score: 0, reason: 'reject_term' };
+  }
+  if (!rules.requiredTerms.some((term) => title.includes(normalized(term)))) {
+    return { status: 'rejected', score: 0, reason: 'required_term_missing' };
+  }
+  return { status: 'verified', score: 100, reason: 'catalog_rules' };
 }

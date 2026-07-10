@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 
 import type { CollectorClient } from '@/main/collector/client';
 import type { AmazonRegion } from '@/shared/contracts';
+import type { CatalogEntry } from '@/main/catalog/repository';
 
 import type { PriceRepository, CheckStatus } from './repository';
 
@@ -17,6 +18,23 @@ export class PriceService {
   constructor(private readonly dependencies: Dependencies) {}
 
   async refreshDoll(dollId: string, regions: AmazonRegion[]) {
+    return this.refresh(dollId, regions);
+  }
+
+  async refreshCatalogEntry(entry: CatalogEntry, regions: AmazonRegion[]) {
+    if (!entry.dollId) throw new Error('Catalog entry has no doll');
+    return this.refresh(entry.dollId, regions, {
+      mattelSku: entry.mattelSku,
+      requiredTerms: entry.requiredTerms,
+      rejectTerms: entry.rejectTerms,
+    });
+  }
+
+  private async refresh(
+    dollId: string,
+    regions: AmazonRegion[],
+    catalogRules?: { mattelSku: string; requiredTerms: readonly string[]; rejectTerms: readonly string[] },
+  ) {
     const doll = this.dependencies.db.prepare('select * from dolls where id = ?').get(dollId) as Record<string, unknown> | undefined;
     if (!doll) throw new Error('Doll not found');
     const listings = this.dependencies.prices.listListings(dollId);
@@ -35,10 +53,11 @@ export class PriceService {
         region: listing.region, asin: listing.asin, url: listing.url, confirmed: true,
       })),
       regions,
+      ...(catalogRules ? { catalogRules } : {}),
     });
 
     for (const [region, regionResult] of Object.entries(result.regions) as Array<[AmazonRegion, NonNullable<(typeof result.regions)[AmazonRegion]>]>) {
-      for (const candidate of regionResult.reviewCandidates) {
+      if (!catalogRules) for (const candidate of regionResult.reviewCandidates) {
         this.dependencies.prices.ensureListing({
           dollId, region, asin: candidate.asin, url: candidate.canonicalUrl, status: 'candidate',
           matchScore: 85, matchReasons: ['title_similarity'],

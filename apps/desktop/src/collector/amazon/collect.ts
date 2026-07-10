@@ -1,7 +1,7 @@
 import type { AmazonRegion } from '@/shared/contracts';
 
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
-import { matchAmazonProduct } from './matching';
+import { matchAmazonProduct, matchCatalogOffer } from './matching';
 import { parseAmazonProductPage } from './product-page';
 import { parseAmazonSearchResults } from './search';
 
@@ -36,7 +36,7 @@ export async function collectDoll(
     }
     if (accepted) continue;
 
-    const terms = [request.doll.mattelSku, request.doll.upcEan, request.doll.name]
+    const terms = request.catalogRules ? [request.catalogRules.mattelSku] : [request.doll.mattelSku, request.doll.upcEan, request.doll.name]
       .filter((term): term is string => Boolean(term?.trim()))
       .slice(0, 3);
     const candidates = [];
@@ -53,11 +53,22 @@ export async function collectDoll(
       if (candidates.length >= 5) break;
     }
 
-    const reviewCandidates = candidates.filter((candidate) =>
-      matchAmazonProduct(request.doll, candidate).status === 'needs_review',
-    );
+    for (const candidate of candidates) {
+      progress('checking', region);
+      const html = await driver.openProduct(region, candidate.canonicalUrl);
+      const page = parseAmazonProductPage(html, { region, expectedAsin: candidate.asin });
+      if (page.status !== 'verified') continue;
+      const match = request.catalogRules
+        ? matchCatalogOffer(request.catalogRules, { title: page.title, evidenceText: `${page.title ?? ''} ${html}`, condition: page.condition })
+        : matchAmazonProduct(request.doll, candidate);
+      if (match.status !== 'verified') continue;
+      result.regions[region] = { ...page, region, url: candidate.canonicalUrl, reviewCandidates: [] };
+      accepted = true;
+      break;
+    }
+    if (accepted) continue;
     result.regions[region] = {
-      status: reviewCandidates.length > 0 ? 'no_price' : 'no_price',
+      status: 'no_price',
       asin: null,
       title: null,
       regularPrice: null,
@@ -70,7 +81,7 @@ export async function collectDoll(
       condition: null,
       region,
       url: null,
-      reviewCandidates,
+      reviewCandidates: [],
     };
   }
 
