@@ -1,5 +1,3 @@
-import { parentPort } from 'electron';
-
 import { collectDoll } from './amazon/collect';
 import { BrowserCollectorDriver } from './browser';
 import type { CollectorControlMessage, CollectorRequest, CollectorResponse } from './contracts';
@@ -8,6 +6,9 @@ import { SerialQueue } from './queue';
 const queue = new SerialQueue();
 const drivers = new Map<string, BrowserCollectorDriver>();
 const resumeWaiters = new Map<string, { resolve: () => void; reject: (error: Error) => void }>();
+const parentPort = process.parentPort;
+
+if (!parentPort) throw new Error('Collector worker requires Electron utility-process parentPort');
 
 const send = (message: CollectorResponse) => parentPort.postMessage(message);
 const keyFor = (requestId: string, region: string) => `${requestId}:${region}`;
