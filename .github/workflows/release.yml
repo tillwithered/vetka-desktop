@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches package version
+        run: npm run release:verify-version
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Squirrel.Windows artifacts
+        run: npm run make
+
+      - name: Prepare release assets and checksums
+        shell: pwsh
+        run: |
+          $source = Join-Path $PWD 'out/make/squirrel.windows/x64'
+          $releases = @(Get-ChildItem -LiteralPath $source -Filter 'RELEASES' -File)
+          $packages = @(Get-ChildItem -LiteralPath $source -Filter '*-full.nupkg' -File)
+          $installers = @(Get-ChildItem -LiteralPath $source -Filter 'VetkaDesktopSetup.exe' -File)
+
+          if ($releases.Count -ne 1) { throw "Expected one RELEASES file, found $($releases.Count)" }
+          if ($packages.Count -ne 1) { throw "Expected one full nupkg, found $($packages.Count)" }
+          if ($installers.Count -ne 1) { throw "Expected one installer, found $($installers.Count)" }
+
+          $destination = Join-Path $PWD 'release-assets'
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          Copy-Item -LiteralPath $releases[0].FullName -Destination $destination
+          Copy-Item -LiteralPath $packages[0].FullName -Destination $destination
+          Copy-Item -LiteralPath $installers[0].FullName -Destination $destination
+
+          $lines = Get-ChildItem -LiteralPath $destination -File |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              "$hash  $($_.Name)"
+            }
+          $lines | Set-Content -LiteralPath (Join-Path $destination 'SHA256SUMS.txt') -Encoding utf8NoBOM
+
+      - name: Attest installer and update package
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            apps/desktop/release-assets/VetkaDesktopSetup.exe
+            apps/desktop/release-assets/*-full.nupkg
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = Get-ChildItem -LiteralPath 'release-assets' -File | Select-Object -ExpandProperty FullName
+          gh release create $env:GITHUB_REF_NAME $assets --verify-tag --title "Vetka Desktop $env:GITHUB_REF_NAME" --generate-notes
