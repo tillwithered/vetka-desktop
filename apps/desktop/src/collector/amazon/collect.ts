@@ -3,6 +3,7 @@ import type { AmazonRegion } from '@/shared/contracts';
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
 import { matchAmazonProduct, matchCatalogOffer } from './matching';
 import { parseAmazonProductPage } from './product-page';
+import { amazonRegions } from './regions';
 import { parseAmazonSearchResults } from './search';
 
 export type CollectorDriver = {
@@ -22,12 +23,16 @@ export async function collectDoll(
   const result: CollectorDollResult = { requestId: request.requestId, regions: {} };
 
   for (const region of request.regions) {
-    const listings = request.knownListings.filter((listing) => listing.region === region && listing.confirmed);
+    const listings = [...request.knownListings]
+      .filter((listing) => listing.confirmed)
+      .sort((left, right) => Number(right.region === region) - Number(left.region === region))
+      .filter((listing, index, all) => all.findIndex((candidate) => candidate.asin === listing.asin) === index);
     let accepted = false;
 
     for (const listing of listings) {
       progress('checking', region);
-      const html = await driver.openProduct(region, listing.url);
+      const url = listing.region === region ? listing.url : `https://${amazonRegions[region].host}/dp/${listing.asin}`;
+      const html = await driver.openProduct(region, url);
       const page = parseAmazonProductPage(html, {
         region,
         expectedAsin: listing.asin,
@@ -42,7 +47,7 @@ export async function collectDoll(
         matchDiagnostic = match;
         if (match.status !== 'verified') continue;
       }
-      result.regions[region] = { ...page, region, url: listing.url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
+      result.regions[region] = { ...page, region, url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
       if (page.status === 'verified' || page.status === 'captcha_required') {
         if (page.status === 'captcha_required') progress('captcha_required', region);
         accepted = true;

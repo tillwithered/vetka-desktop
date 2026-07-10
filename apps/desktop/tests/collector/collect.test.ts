@@ -23,6 +23,23 @@ describe('collectDoll', () => {
     expect(progress).toHaveBeenCalledWith('checking', 'amazon_us');
   });
 
+  it('probes a confirmed ES ASIN on UK before search and verifies it by facts', async () => {
+    const product = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span><div id="corePrice_feature_div"><span class="a-offscreen">£24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => product), search: vi.fn(async () => '') };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'request-cross-region', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam Boo-riginal Creeproduction', mattelSku: 'JHK59' },
+      knownListings: [{ region: 'amazon_es', asin: 'B0FK1V67X5', url: 'https://www.amazon.es/dp/B0FK1V67X5', confirmed: true }],
+      regions: ['amazon_uk'],
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam', 'Creeproduction'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(driver.openProduct).toHaveBeenCalledWith('amazon_uk', 'https://www.amazon.co.uk/dp/B0FK1V67X5');
+    expect(driver.search).not.toHaveBeenCalled();
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'verified', asin: 'B0FK1V67X5', regularPrice: { minor: 2499, currency: 'GBP' } });
+  });
+
   it('opens a search result and persists only a strict catalog match', async () => {
     const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Willow Thorne Moonspell Magic Doll JMB92</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
     const search = '<div data-asin="B0CXYZ1234"><h2><span>Monster High Willow Thorne Moonspell Magic Doll</span></h2><a href="/dp/B0CXYZ1234"></a></div>';
