@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { chromium, type BrowserContext, type Page } from 'playwright-core';
+import type { BrowserContext, Page } from 'playwright-core';
 
 import type { AmazonRegion } from '@/shared/contracts';
 
@@ -27,6 +28,16 @@ export function findBrowserExecutable(environment: NodeJS.ProcessEnv = process.e
     if (existsSync(candidate)) return candidate;
   }
   return null;
+}
+
+function loadPlaywright(): typeof import('playwright-core') {
+  const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
+  const requirePlaywright = existsSync(packagedManifest)
+    ? createRequire(packagedManifest)
+    : createRequire(__filename);
+  return (existsSync(packagedManifest)
+    ? requirePlaywright('./')
+    : requirePlaywright('playwright-core')) as typeof import('playwright-core');
 }
 
 export class BrowserCollectorDriver implements CollectorDriver {
@@ -69,7 +80,7 @@ export class BrowserCollectorDriver implements CollectorDriver {
     if (!this.executablePath) throw new BrowserNotFoundError();
     const config = amazonRegions[region];
     const profileDirectory = path.join(this.dataDir, 'amazon-profiles', region);
-    const context = await chromium.launchPersistentContext(profileDirectory, {
+    const context = await loadPlaywright().chromium.launchPersistentContext(profileDirectory, {
       executablePath: this.executablePath,
       headless: false,
       locale: config.locale,

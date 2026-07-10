@@ -94,7 +94,7 @@ export class PriceRepository {
 
       if (input.status === 'verified' && input.offer) {
         const offer = input.offer;
-        if (offer.currency !== amazonRegions[listing.region].currency) throw new Error('Currency does not match Amazon region');
+        if (offer.currency !== amazonRegions[listing.region].currency && offer.currency !== 'KZT') throw new Error('Currency does not match Amazon region');
         if (!Number.isSafeInteger(offer.priceMinor) || offer.priceMinor < 0 || !Number.isSafeInteger(offer.rateToKztMicros) || offer.rateToKztMicros <= 0) throw new Error('Invalid verified offer');
         const priceKztMinor = Math.round((offer.priceMinor * offer.rateToKztMicros) / 1_000_000);
         this.db.prepare(`insert into price_snapshots (

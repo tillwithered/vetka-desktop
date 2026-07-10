@@ -5,6 +5,8 @@ import { CatalogRepository } from '@/main/catalog/repository';
 import { monsterHighSkuCatalog } from '@/main/catalog/seed';
 import { runMigrations } from '@/main/db/migrate';
 import { DollRepository } from '@/main/dolls/repository';
+import { PriceRepository } from '@/main/prices/repository';
+import { seedVerifiedAmazonListings } from '@/main/catalog/listing-seed';
 
 const seed = [
   {
@@ -54,5 +56,19 @@ describe('CatalogRepository', () => {
   it('validates a whole import before writing any row', () => {
     expect(() => catalog.importSeed([{ ...seed[0], mattelSku: '' }])).toThrow('Invalid catalog entry');
     expect(catalog.listActive()).toEqual([]);
+  });
+
+  it('seeds a live-verified Amazon listing as a confirmed direct check', () => {
+    catalog.importSeed(monsterHighSkuCatalog);
+    const prices = new PriceRepository(db);
+
+    seedVerifiedAmazonListings({ catalog, prices });
+
+    const catty = catalog.listAll().find((entry) => entry.mattelSku === 'HXH76');
+    expect(catty?.dollId).toBeTruthy();
+    expect(prices.listListings(catty!.dollId!)).toContainEqual(expect.objectContaining({
+      region: 'amazon_es', asin: 'B0CMGDLQC9', status: 'confirmed', confirmationSource: 'exact_id',
+    }));
+    expect(catalog.listActive().at(0)).toMatchObject({ mattelSku: 'HXH76' });
   });
 });

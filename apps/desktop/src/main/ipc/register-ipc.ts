@@ -58,9 +58,15 @@ function failure(error: unknown): ApiResult<never> {
   if (error instanceof ZodError) {
     return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Проверьте заполненные поля' } };
   }
+  const rawMessage = error instanceof Error ? error.message.replace(/\s+/g, ' ').trim() : '';
+  const diagnosticMessage = rawMessage
+    && rawMessage.length <= 240
+    && !/(?:https?:\/\/|token|password|stack)/i.test(rawMessage)
+    ? rawMessage
+    : null;
   const message = error instanceof Error && error.message === 'Doll not found'
     ? 'Кукла не найдена'
-    : 'Не удалось выполнить операцию';
+    : diagnosticMessage ?? 'Не удалось выполнить операцию';
   const code = error instanceof Error && error.message === 'Doll not found' ? 'NOT_FOUND' : 'INTERNAL_ERROR';
   return { ok: false, error: { code, message } };
 }

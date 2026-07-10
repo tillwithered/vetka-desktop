@@ -23,4 +23,23 @@ describe('parseAmazonSearchResults', () => {
       },
     ]);
   });
+
+  it('uses the accessible heading on current Amazon result cards', () => {
+    const html = `
+      <div data-component-type="s-search-result" data-asin="B0FK856NFW">
+        <h2 aria-label="Monster High Skullector Collectible Doll">
+          <a href="/Monster-High/dp/B0FK856NFW?ref=sr_1"><span>Monster High</span></a>
+        </h2>
+        <span class="a-price"><span class="a-offscreen">KZT 34,556.00</span></span>
+      </div>`;
+
+    expect(parseAmazonSearchResults(html, 'amazon_us')).toMatchObject([
+      {
+        asin: 'B0FK856NFW',
+        title: 'Monster High Skullector Collectible Doll',
+        canonicalUrl: 'https://www.amazon.com/dp/B0FK856NFW',
+        visiblePrice: { minor: 3455600, currency: 'KZT' },
+      },
+    ]);
+  });
 });

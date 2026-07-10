@@ -12,6 +12,7 @@ export type CatalogScanState = {
   nextRunAt: string | null;
   processed: number;
   total: number;
+  lastError?: string | null;
 };
 
 type Dependencies = {
@@ -27,7 +28,7 @@ export class CatalogScanService {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running: Promise<CatalogScanState> | null = null;
   private disposed = false;
-  private state: CatalogScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 };
+  private state: CatalogScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null };
   private readonly schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   private readonly clearSchedule: (timer: ReturnType<typeof setTimeout>) => void;
   private readonly now: () => Date;
@@ -68,12 +69,13 @@ export class CatalogScanService {
 
   private async run(): Promise<CatalogScanState> {
     const entries = this.dependencies.catalog.listActive();
-    this.setState({ status: 'running', startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length });
+    this.setState({ status: 'running', startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length, lastError: null });
     for (const entry of entries) {
       try {
         await this.dependencies.priceService.refreshCatalogEntry(entry, regions);
-      } catch {
-        // Each entry already records recoverable collector outcomes; one failure never stops the catalog.
+      } catch (error) {
+        const message = error instanceof Error ? error.message.replace(/\s+/g, ' ').trim() : 'Не удалось проверить Amazon';
+        this.setState({ ...this.state, lastError: message.slice(0, 240) || 'Не удалось проверить Amazon' });
       }
       this.setState({ ...this.state, processed: this.state.processed + 1 });
     }

@@ -66,7 +66,7 @@ export function matchCatalogOffer(
   const title = normalized(candidate.title);
   if (!evidence.includes(normalized(rules.mattelSku))) return { status: 'rejected', score: 0, reason: 'mattel_sku_missing' };
   if (candidate.condition !== 'New') return { status: 'rejected', score: 0, reason: 'condition_not_new' };
-  if (rules.rejectTerms.some((term) => title.includes(normalized(term)) || evidence.includes(normalized(term)))) {
+  if (rules.rejectTerms.some((term) => title.includes(normalized(term)))) {
     return { status: 'rejected', score: 0, reason: 'reject_term' };
   }
   if (!rules.requiredTerms.some((term) => title.includes(normalized(term)))) {

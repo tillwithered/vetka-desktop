@@ -21,6 +21,8 @@ import { UpdateService } from './main/updates/service';
 import { CatalogRepository } from './main/catalog/repository';
 import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
+import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
+import { startBackgroundServices } from './main/app-services';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
@@ -76,6 +78,7 @@ app.whenReady().then(async () => {
   catalog.importSeed(monsterHighSkuCatalog);
   const settings = new SettingsRepository(database);
   const prices = new PriceRepository(database);
+  seedVerifiedAmazonListings({ catalog, prices });
   const orders = new OrderRepository(database);
   const feedUrl = buildUpdateFeedUrl({
     platform: process.platform,
@@ -104,6 +107,7 @@ app.whenReady().then(async () => {
     collector,
     dataDir: app.getPath('userData'),
     getRate: (currency) => {
+      if (currency === 'KZT') return 1_000_000;
       const rates = settings.get<Record<string, { rateMicros: number }>>('exchangeRates');
       const rate = rates?.[currency]?.rateMicros;
       if (!rate || rate <= 0) throw new Error(`Укажите курс ${currency} к тенге в настройках`);
@@ -114,6 +118,7 @@ app.whenReady().then(async () => {
     catalog,
     priceService,
     onStateChanged: (state) => {
+      settings.set('catalogScanState', state);
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
     },
   });
@@ -129,8 +134,7 @@ app.whenReady().then(async () => {
     version: () => app.getVersion(),
   });
   createWindow();
-  updates?.start();
-  catalogScan?.start();
+  startBackgroundServices({ updates, scan: catalogScan });
 });
 
 app.on('before-quit', () => {

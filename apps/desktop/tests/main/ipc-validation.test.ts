@@ -73,4 +73,19 @@ describe('validated IPC', () => {
     expect(scanService.runNow).toHaveBeenCalledTimes(1);
     expect(handlers.get(channels.catalogGetScanState)?.({})).toEqual({ ok: true, data: state });
   });
+
+  it('keeps a bounded collector error instead of a generic operation error', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const dolls = new DollRepository(db);
+    const doll = dolls.create({ name: 'Draculaura' });
+    registerIpcHandlers({ handle: (channel, handler) => handlers.set(channel, handler) }, {
+      dolls,
+      settings: new SettingsRepository(db),
+      version: () => '1.2.3',
+      priceService: { refreshDoll: vi.fn(async () => { throw new Error('Collector worker exited'); }) } as never,
+    });
+
+    await expect(handlers.get(channels.amazonRefreshDoll)?.({}, { dollId: doll.id, regions: ['amazon_us'] }))
+      .resolves.toEqual({ ok: false, error: { code: 'INTERNAL_ERROR', message: 'Collector worker exited' } });
+  });
 });

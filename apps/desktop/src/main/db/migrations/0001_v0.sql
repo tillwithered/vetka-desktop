@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS price_snapshots (
   listing_id TEXT NOT NULL REFERENCES amazon_listings(id) ON DELETE CASCADE,
   offer_kind TEXT NOT NULL CHECK (offer_kind IN ('regular','prime','subscription')),
   price_minor INTEGER NOT NULL CHECK (price_minor >= 0),
-  currency TEXT NOT NULL CHECK (currency IN ('USD','GBP','EUR')),
+  currency TEXT NOT NULL CHECK (currency IN ('USD','GBP','EUR','KZT')),
   shipping_minor INTEGER CHECK (shipping_minor IS NULL OR shipping_minor >= 0),
   seller_name TEXT,
   fulfilled_by_amazon INTEGER NOT NULL CHECK (fulfilled_by_amazon IN (0, 1)),

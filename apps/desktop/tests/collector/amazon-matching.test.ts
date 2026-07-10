@@ -41,4 +41,12 @@ describe('matchCatalogOffer', () => {
       title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB93 Monster High', condition: 'New',
     })).toMatchObject({ status: 'rejected', reason: 'mattel_sku_missing' });
   });
+
+  it('does not reject a matching product because an unrelated page section mentions an accessory', () => {
+    expect(matchCatalogOffer(rules, {
+      title: 'Monster High Willow Thorne Moonspell Magic Doll',
+      evidenceText: 'Model JMB92 Customers also viewed an outfit accessory only',
+      condition: 'New',
+    })).toMatchObject({ status: 'verified' });
+  });
 });

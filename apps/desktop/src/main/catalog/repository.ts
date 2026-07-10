@@ -99,7 +99,14 @@ export class CatalogRepository {
   }
 
   private listByStatus(status: 'active' | 'monitor_only'): CatalogEntry[] {
-    return this.mapRows(this.db.prepare('select * from catalog_entries where monitor_status = ? order by name').all(status) as Record<string, unknown>[]);
+    return this.mapRows(this.db.prepare(`
+      select * from catalog_entries
+      where monitor_status = ?
+      order by exists(
+        select 1 from amazon_listings l
+        where l.doll_id = catalog_entries.doll_id and l.status = 'confirmed'
+      ) desc, name
+    `).all(status) as Record<string, unknown>[]);
   }
 
   private mapRows(rows: Record<string, unknown>[]): CatalogEntry[] {

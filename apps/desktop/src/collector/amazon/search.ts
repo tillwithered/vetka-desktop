@@ -19,12 +19,16 @@ export function parseAmazonSearchResults(html: string, region: AmazonRegion): Am
   const $ = load(html);
   const config = amazonRegions[region];
   const candidates: AmazonCandidate[] = [];
+  const cards = $('div[data-component-type="s-search-result"][data-asin]').length > 0
+    ? $('div[data-component-type="s-search-result"][data-asin]')
+    : $('div[data-asin]');
 
-  $('div[data-asin]').each((_index, element) => {
+  cards.each((_index, element) => {
     const node = $(element);
     const asin = String(node.attr('data-asin') ?? '').toUpperCase();
     if (!/^[A-Z0-9]{10}$/.test(asin)) return;
-    const title = node.find('h2 span').first().text().replace(/\s+/g, ' ').trim();
+    const title = node.find('h2').first().attr('aria-label')?.trim()
+      || node.find('h2 span').last().text().replace(/\s+/g, ' ').trim();
     const link = node.find(`a[href*="/dp/${asin}"]`).first();
     if (!title || link.length === 0) return;
     const priceText = node.find('.a-price .a-offscreen').first().text().trim();
@@ -33,7 +37,9 @@ export function parseAmazonSearchResults(html: string, region: AmazonRegion): Am
       region,
       title,
       canonicalUrl: `https://${config.host}/dp/${asin}`,
-      visiblePrice: priceText ? parseLocalizedMoney(priceText, config.currency) : null,
+      visiblePrice: priceText
+        ? parseLocalizedMoney(priceText, /\bKZT\b/i.test(priceText) ? 'KZT' : config.currency)
+        : null,
       imageUrl: node.find('img.s-image').first().attr('src') ?? null,
       status: 'candidate',
     });

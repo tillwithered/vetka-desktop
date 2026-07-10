@@ -45,6 +45,24 @@ describe('parseAmazonProductPage', () => {
     });
   });
 
+  it('keeps a KZT delivered price instead of treating it as a missing price', () => {
+    const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Draculaura</span><div id="corePrice_feature_div"><span class="a-offscreen">KZT 66,276.71</span></div><div id="availability">Only 14 left in stock</div><div id="condition">New</div>';
+
+    expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0CXYZ1234' })).toMatchObject({
+      status: 'verified',
+      regularPrice: { minor: 6627671, currency: 'KZT' },
+    });
+  });
+
+  it('reads the current Amazon accessible price when the legacy offscreen span is blank', () => {
+    const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Catty Noir Doll HXH76</span><div id="corePrice_feature_div"><span class="a-offscreen"></span><span class="apex-pricetopay-accessibility-label">€34.99</span></div><div id="availability">In stock</div><div id="condition">New</div>';
+
+    expect(parseAmazonProductPage(html, { region: 'amazon_es', expectedAsin: 'B0CXYZ1234' })).toMatchObject({
+      status: 'verified',
+      regularPrice: { minor: 3499, currency: 'EUR' },
+    });
+  });
+
   it('rejects a different product identity', () => {
     expect(parseAmazonProductPage(fixture('amazon_us'), { region: 'amazon_us' as AmazonRegion, expectedAsin: 'B000000000' }).status).toBe('identity_mismatch');
   });

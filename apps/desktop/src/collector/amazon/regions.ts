@@ -8,7 +8,9 @@ export const amazonRegions = {
   amazon_it: { host: 'www.amazon.it', currency: 'EUR', locale: 'it-IT' },
 } as const satisfies Record<AmazonRegion, { host: string; currency: 'USD' | 'GBP' | 'EUR'; locale: string }>;
 
-export type AmazonCurrency = (typeof amazonRegions)[AmazonRegion]['currency'];
+// Amazon's global storefront can render the delivered total in KZT even on
+// amazon.com. Keep the observed currency rather than silently dropping it.
+export type AmazonCurrency = (typeof amazonRegions)[AmazonRegion]['currency'] | 'KZT';
 
 export function regionForHost(hostname: string): AmazonRegion | null {
   const normalized = hostname.toLowerCase().replace(/^www\./, '');

@@ -32,6 +32,23 @@ describe('PriceRepository', () => {
     expect(db.prepare('select count(*) as count from price_snapshots').get()).toEqual({ count: 1 });
   });
 
+  it('accepts a KZT price rendered by an Amazon global storefront', () => {
+    prices.applyCheck({
+      listingId,
+      status: 'verified',
+      checkedAt: '2026-07-10T11:00:00Z',
+      offer: {
+        offerKind: 'regular', priceMinor: 6_627_671, currency: 'KZT', shippingMinor: 0,
+        sellerName: 'Amazon.com', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New',
+        couponText: null, rateToKztMicros: 1_000_000,
+      },
+    });
+
+    expect(prices.current(dollId)).toContainEqual(expect.objectContaining({
+      currency: 'KZT', priceKztMinor: 6_627_671,
+    }));
+  });
+
   it.each(['captcha_required', 'conflict', 'parser_changed'] as const)('never snapshots %s', (status) => {
     prices.applyCheck({ listingId, status, checkedAt: '2026-07-10T10:00:00Z', offer: null });
     expect(db.prepare('select count(*) as count from price_snapshots').get()).toEqual({ count: 0 });

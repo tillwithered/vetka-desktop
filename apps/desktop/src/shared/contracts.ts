@@ -63,7 +63,7 @@ export type UpdateState =
   | { status: 'error'; message: string };
 
 export type CatalogScanState = {
-  status: 'idle' | 'running'; startedAt: string | null; completedAt: string | null; nextRunAt: string | null; processed: number; total: number;
+  status: 'idle' | 'running'; startedAt: string | null; completedAt: string | null; nextRunAt: string | null; processed: number; total: number; lastError?: string | null;
 };
 
 export type CurrentPrice = {
@@ -74,7 +74,7 @@ export type CurrentPrice = {
   snapshotId: string;
   offerKind: string;
   priceMinor: number;
-  currency: 'USD' | 'GBP' | 'EUR';
+  currency: 'USD' | 'GBP' | 'EUR' | 'KZT';
   shippingMinor: number | null;
   sellerName: string | null;
   fulfilledByAmazon: boolean;

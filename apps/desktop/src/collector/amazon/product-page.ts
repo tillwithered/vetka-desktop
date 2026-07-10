@@ -3,7 +3,7 @@ import { load } from 'cheerio';
 import type { AmazonRegion } from '@/shared/contracts';
 
 import { parseLocalizedMoney, parseStructuredMoney, type ParsedMoney } from './money';
-import { amazonRegions } from './regions';
+import { amazonRegions, type AmazonCurrency } from './regions';
 
 export type AmazonPageStatus =
   | 'verified'
@@ -50,7 +50,7 @@ function firstText($: ReturnType<typeof load>, selectors: string[]): string | nu
   return null;
 }
 
-function structuredPrices($: ReturnType<typeof load>, currency: 'USD' | 'GBP' | 'EUR'): ParsedMoney[] {
+function structuredPrices($: ReturnType<typeof load>, currency: AmazonCurrency): ParsedMoney[] {
   const prices: ParsedMoney[] = [];
   $('script[type="application/ld+json"]').each((_index, element) => {
     try {
@@ -98,16 +98,20 @@ export function parseAmazonProductPage(
 
   const regularText = firstText($, [
     '#corePrice_feature_div .a-offscreen',
+    '#corePrice_feature_div .apex-pricetopay-accessibility-label',
+    '#apex-pricetopay-accessibility-label',
     '#apex_desktop .a-offscreen',
     '#priceblock_ourprice',
     '#price_inside_buybox',
   ]);
   const primeText = firstText($, ['[data-vetka-offer="prime"] .a-offscreen']);
   const subscriptionText = firstText($, ['[data-vetka-offer="subscription"] .a-offscreen', '#sns-base-price']);
-  const regularPrice = regularText ? parseLocalizedMoney(regularText, config.currency) : null;
-  const primePrice = primeText ? parseLocalizedMoney(primeText, config.currency) : null;
-  const subscriptionPrice = subscriptionText ? parseLocalizedMoney(subscriptionText, config.currency) : null;
-  const structured = structuredPrices($, config.currency);
+  const currencyFor = (text: string | null): AmazonCurrency => /\bKZT\b/i.test(text ?? '') ? 'KZT' : config.currency;
+  const regularCurrency = currencyFor(regularText);
+  const regularPrice = regularText ? parseLocalizedMoney(regularText, regularCurrency) : null;
+  const primePrice = primeText ? parseLocalizedMoney(primeText, currencyFor(primeText)) : null;
+  const subscriptionPrice = subscriptionText ? parseLocalizedMoney(subscriptionText, currencyFor(subscriptionText)) : null;
+  const structured = regularCurrency === config.currency ? structuredPrices($, config.currency) : [];
 
   if (regularPrice && structured.some((price) => Math.abs(price.minor - regularPrice.minor) > 1)) {
     return { ...base, status: 'conflict' };

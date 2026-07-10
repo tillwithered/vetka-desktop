@@ -21,7 +21,13 @@ function numericToMinor(raw: string, currency: AmazonCurrency): number | null {
 
 export function parseLocalizedMoney(text: string, currency: AmazonCurrency): ParsedMoney | null {
   const withoutUnitPrices = text.replace(/\([^)]*\/[\s\w]+\)/gi, ' ');
-  const marker = currency === 'USD' ? '(?:\\$|USD)' : currency === 'GBP' ? '(?:£|GBP)' : '(?:€|EUR)';
+  const marker = currency === 'USD'
+    ? '(?:\\$|USD)'
+    : currency === 'GBP'
+      ? '(?:\\u00a3|GBP)'
+      : currency === 'EUR'
+        ? '(?:\\u20ac|EUR)'
+        : 'KZT';
   const before = new RegExp(`${marker}\\s*([0-9][0-9.,\\s\\u00a0\\u202f]*)`, 'gi');
   const after = new RegExp(`([0-9][0-9.,\\s\\u00a0\\u202f]*)\\s*${marker}`, 'gi');
   const amounts: number[] = [];

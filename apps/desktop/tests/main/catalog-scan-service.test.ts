@@ -41,4 +41,16 @@ describe('CatalogScanService', () => {
     service.dispose();
     expect(clearSchedule).toHaveBeenCalledWith(1 as unknown as ReturnType<typeof setTimeout>);
   });
+
+  it('keeps the latest per-entry error in scan state', async () => {
+    const service = new CatalogScanService({
+      catalog: { listActive: () => [entry] },
+      priceService: { refreshCatalogEntry: vi.fn(async () => { throw new Error('Collector worker exited'); }) },
+      schedule: vi.fn(), clearSchedule: vi.fn(), now: () => new Date('2026-07-10T10:00:00.000Z'),
+    });
+
+    await service.runNow();
+
+    expect(service.getState()).toMatchObject({ status: 'idle', lastError: 'Collector worker exited' });
+  });
 });
