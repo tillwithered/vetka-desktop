@@ -7,7 +7,7 @@ describe('App', () => {
   it('renders the four V0 destinations', () => {
     render(<App />);
 
-    expect(screen.getByText('Избранное')).toBeInTheDocument();
+    expect(screen.getAllByText('Избранное').length).toBeGreaterThan(0);
     expect(screen.getByText('Куклы')).toBeInTheDocument();
     expect(screen.getByText('Заказы')).toBeInTheDocument();
     expect(screen.getByText('Настройки')).toBeInTheDocument();

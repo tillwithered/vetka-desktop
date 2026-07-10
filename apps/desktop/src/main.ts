@@ -38,6 +38,10 @@ export const createWindow = () => {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//i.test(url)) void import('electron').then(({ shell }) => shell.openExternal(url));
+    return { action: 'deny' };
+  });
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

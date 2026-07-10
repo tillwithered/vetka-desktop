@@ -55,6 +55,36 @@ export type Doll = DollInput & {
 export type ApiError = { code: string; message: string };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
+export type CurrentPrice = {
+  listingId: string;
+  region: AmazonRegion;
+  asin: string;
+  url: string;
+  snapshotId: string;
+  offerKind: string;
+  priceMinor: number;
+  currency: 'USD' | 'GBP' | 'EUR';
+  shippingMinor: number | null;
+  sellerName: string | null;
+  fulfilledByAmazon: boolean;
+  availability: string;
+  condition: 'New';
+  couponText: string | null;
+  rateToKztMicros: number;
+  priceKztMinor: number;
+  checkedAt: string;
+  latestCheckStatus: string;
+};
+
+export type PriceHistoryRecord = {
+  region: AmazonRegion;
+  listingId: string;
+  priceMinor: number;
+  priceKztMinor: number;
+  currency: string;
+  checkedAt: string;
+};
+
 export type VetkaDesktopApi = {
   health(): Promise<ApiResult<{ version: string }>>;
   dolls: {
@@ -75,8 +105,8 @@ export type VetkaDesktopApi = {
     onProgress(listener: (event: { requestId: string; stage: CollectorStage; region?: AmazonRegion }) => void): () => void;
   };
   prices: {
-    current(dollId: string): Promise<ApiResult<unknown[]>>;
-    history(dollId: string, range?: '7d' | '30d' | '90d' | 'all'): Promise<ApiResult<unknown[]>>;
+    current(dollId: string): Promise<ApiResult<CurrentPrice[]>>;
+    history(dollId: string, range?: '7d' | '30d' | '90d' | 'all'): Promise<ApiResult<PriceHistoryRecord[]>>;
   };
 };
 
