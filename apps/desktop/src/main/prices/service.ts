@@ -107,6 +107,7 @@ export class PriceService {
             }
           : null,
       });
+      if (regionResult.status === 'verified' && regionResult.imageUrl) this.dependencies.db.prepare('update dolls set image_path = coalesce(image_path, ?) where id = ?').run(regionResult.imageUrl, dollId);
     }
     }
     return combined;

@@ -7,8 +7,9 @@
   "private": true,
   "scripts": {
     "start": "electron-forge start",
-    "package": "npx --yes --package=node@22 node node_modules/@electron-forge/cli/dist/electron-forge.js package",
-    "make": "npx --yes --package=node@22 node node_modules/@electron-forge/cli/dist/electron-forge.js make",
+    "prepare:chromium": "node scripts/prepare-playwright-chromium.mjs",
+    "package": "npm run prepare:chromium && npx --yes --package=node@22 node node_modules/@electron-forge/cli/dist/electron-forge.js package",
+    "make": "npm run prepare:chromium && npx --yes --package=node@22 node node_modules/@electron-forge/cli/dist/electron-forge.js make",
     "publish": "electron-forge publish",
     "release:verify-version": "node scripts/verify-release-version.mjs",
     "lint": "eslint --ext .ts,.tsx .",

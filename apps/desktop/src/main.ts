@@ -23,6 +23,7 @@ import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
 import { startBackgroundServices } from './main/app-services';
+import { NbkRateService } from './main/rates/service';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
@@ -77,6 +78,9 @@ app.whenReady().then(async () => {
   const catalog = new CatalogRepository(database, dolls);
   catalog.importSeed(monsterHighSkuCatalog);
   const settings = new SettingsRepository(database);
+  const nbkRates = new NbkRateService({ get: settings.get.bind(settings), set: settings.set.bind(settings) });
+  void nbkRates.refresh().catch((): undefined => undefined);
+  setInterval(() => { void nbkRates.refresh().catch((): undefined => undefined); }, 86_400_000);
   const prices = new PriceRepository(database);
   seedVerifiedAmazonListings({ catalog, prices });
   const orders = new OrderRepository(database);

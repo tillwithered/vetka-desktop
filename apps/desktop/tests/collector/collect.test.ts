@@ -36,6 +36,14 @@ describe('collectDoll', () => {
 
     expect(result.regions.amazon_us).toMatchObject({ status: 'verified', asin: 'B0CXYZ1234' });
     expect(result.regions.amazon_us?.reviewCandidates).toEqual([]);
+    expect(driver.search).toHaveBeenCalledWith('amazon_us', 'Willow Thorne');
+  });
+
+  it('does not open an unrelated SKU search result before matching its title', async () => {
+    const search = '<div data-asin="B0HUNTER00"><h2><span>Hunter x Hunter Volume 29</span></h2><a href="/dp/B0HUNTER00"></a></div>';
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => ''), search: vi.fn(async () => search) };
+    await collectDoll({ type: 'refresh-doll', requestId: 'request-4', dataDir: 'C:/data', doll: { id: 'doll-1', name: 'Draculaura Boo-riginal Creeproduction', mattelSku: 'HGC29' }, knownListings: [], regions: ['amazon_us'], catalogRules: { mattelSku: 'HGC29', requiredTerms: ['Draculaura', 'Creeproduction'], rejectTerms: ['outfit'] } }, driver, vi.fn());
+    expect(driver.openProduct).not.toHaveBeenCalled();
   });
 
   it('does not trust a known listing when it no longer passes catalog identity', async () => {

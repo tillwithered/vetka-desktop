@@ -26,6 +26,7 @@ export type AmazonPageResult = {
   fulfilledByAmazon: boolean;
   availability: 'in_stock' | 'preorder' | 'out_of_stock' | null;
   condition: 'New' | null;
+  imageUrl?: string | null;
 };
 
 const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
@@ -40,6 +41,7 @@ const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
   fulfilledByAmazon: false,
   availability: null,
   condition: null,
+  imageUrl: null,
 });
 
 function firstText($: ReturnType<typeof load>, selectors: string[]): string | null {
@@ -89,6 +91,7 @@ export function parseAmazonProductPage(
   const base = emptyResult('no_price');
   base.asin = asin;
   base.title = title;
+  base.imageUrl = $('#landingImage').attr('src') ?? $('#imgTagWrapperId img').first().attr('src') ?? null;
   if (!asin || asin !== context.expectedAsin.toUpperCase()) return { ...base, status: 'identity_mismatch' };
 
   const config = amazonRegions[context.region];
@@ -138,5 +141,6 @@ export function parseAmazonProductPage(
     fulfilledByAmazon: /amazon\.(com|co\.uk|de|es|it)/i.test(merchantText),
     availability: /pre-?order|vorbestell|reserva|preordin/i.test(availabilityText) ? 'preorder' : 'in_stock',
     condition: condition ?? 'New',
+    imageUrl: base.imageUrl,
   };
 }

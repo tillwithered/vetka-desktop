@@ -45,7 +45,7 @@ export async function collectDoll(
     }
     if (accepted) continue;
 
-    const terms = request.catalogRules ? [request.catalogRules.mattelSku] : [request.doll.mattelSku, request.doll.upcEan, request.doll.name]
+    const terms = request.catalogRules ? [request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.mattelSku] : [request.doll.name, request.doll.mattelSku, request.doll.upcEan]
       .filter((term): term is string => Boolean(term?.trim()))
       .slice(0, 3);
     const candidates = [];
@@ -54,6 +54,7 @@ export async function collectDoll(
       progress('searching', region);
       const found = parseAmazonSearchResults(await driver.search(region, term), region);
       for (const candidate of found) {
+        if (request.catalogRules && !request.catalogRules.requiredTerms.some((term) => candidate.title.toLowerCase().includes(term.toLowerCase()))) continue;
         if (!seen.has(candidate.asin) && candidates.length < 5) {
           candidates.push(candidate);
           seen.add(candidate.asin);

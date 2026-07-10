@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
@@ -16,6 +16,13 @@ export class BrowserNotFoundError extends Error {
 }
 
 export function findBrowserExecutable(environment: NodeJS.ProcessEnv = process.env): string | null {
+  const runtimeManifest = path.join(process.resourcesPath ?? '', 'playwright-chromium.json');
+  if (existsSync(runtimeManifest)) {
+    const { executable } = JSON.parse(readFileSync(runtimeManifest, 'utf8')) as { executable: string };
+    const bundled = path.join(process.resourcesPath, 'playwright-chromium', executable);
+    if (existsSync(bundled)) return bundled;
+  }
+  if (existsSync(path.join(process.resourcesPath ?? '', 'app.asar'))) return null;
   const candidates = [
     [environment.PROGRAMFILES, 'Google/Chrome/Application/chrome.exe'],
     [environment['PROGRAMFILES(X86)'], 'Google/Chrome/Application/chrome.exe'],

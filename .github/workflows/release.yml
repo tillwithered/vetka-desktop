@@ -45,6 +45,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Install bundled Playwright Chromium
+        run: npx playwright install chromium
+
       - name: Build Squirrel.Windows artifacts
         run: npm run make
 
