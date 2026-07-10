@@ -15,6 +15,7 @@ import { HomePage } from '@/renderer/features/home/home-page';
 import { OrdersPage } from '@/renderer/features/orders/orders-page';
 import { OrderDetailPage } from '@/renderer/features/orders/order-detail-page';
 import { SettingsPage } from '@/renderer/features/settings/settings-page';
+import { UpdateNotification } from '@/renderer/features/updates/update-notification';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 10_000 } } });
 const destinations = [
@@ -45,5 +46,5 @@ function Shell() {
 }
 
 export function App() {
-  return <QueryClientProvider client={queryClient}><HashRouter><TooltipProvider><Shell /><Toaster richColors /></TooltipProvider></HashRouter></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><HashRouter><TooltipProvider><Shell /><UpdateNotification /><Toaster richColors /></TooltipProvider></HashRouter></QueryClientProvider>;
 }
