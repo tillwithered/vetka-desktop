@@ -146,7 +146,7 @@ app.whenReady().then(async () => {
     version: () => app.getVersion(),
   });
   createWindow();
-  startBackgroundServices({ updates, scan: catalogScan });
+  startBackgroundServices({ updates });
 });
 
 app.on('before-quit', () => {

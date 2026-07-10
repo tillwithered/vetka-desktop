@@ -3,12 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { startBackgroundServices } from '@/main/app-services';
 
 describe('startBackgroundServices', () => {
-  it('starts the catalog scanner even when the updater fails to initialize', () => {
+  it('checks for application updates without starting an Amazon scan at launch', () => {
     const scan = { start: vi.fn() };
-    const updates = { start: vi.fn(() => { throw new Error('Update feed unavailable'); }) };
+    const updates = { start: vi.fn() };
 
     startBackgroundServices({ updates, scan });
 
-    expect(scan.start).toHaveBeenCalledTimes(1);
+    expect(updates.start).toHaveBeenCalledTimes(1);
+    expect(scan.start).not.toHaveBeenCalled();
   });
 });
