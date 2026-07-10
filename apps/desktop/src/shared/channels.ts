@@ -10,6 +10,7 @@ export const channels = {
   amazonAddListing: 'vetka:amazon:add-listing',
   amazonRefreshDoll: 'vetka:amazon:refresh-doll',
   amazonReviewCandidate: 'vetka:amazon:review-candidate',
+  amazonResumeRegion: 'vetka:amazon:resume-region',
   pricesCurrent: 'vetka:prices:current',
   pricesHistory: 'vetka:prices:history',
   collectorProgress: 'vetka:collector:progress',

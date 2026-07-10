@@ -22,6 +22,7 @@ const api: VetkaDesktopApi = {
     addListing: (dollId, url) => ipcRenderer.invoke(channels.amazonAddListing, { dollId, url }),
     refreshDoll: (dollId, regions) => ipcRenderer.invoke(channels.amazonRefreshDoll, { dollId, regions }),
     reviewCandidate: (listingId, decision) => ipcRenderer.invoke(channels.amazonReviewCandidate, { listingId, decision }),
+    resumeRegion: (requestId, region) => ipcRenderer.invoke(channels.amazonResumeRegion, { requestId, region }),
     onProgress: (listener) => {
       const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof listener>[0]) => listener(data);
       ipcRenderer.on(channels.collectorProgress, handler);

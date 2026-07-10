@@ -92,6 +92,7 @@ app.whenReady().then(async () => {
     prices,
     priceService,
     orders,
+    collector,
     version: () => app.getVersion(),
   });
   createWindow();

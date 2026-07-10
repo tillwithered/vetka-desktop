@@ -5,6 +5,7 @@ import type { SettingsRepository } from '@/main/settings/repository';
 import type { PriceRepository } from '@/main/prices/repository';
 import type { PriceService } from '@/main/prices/service';
 import type { OrderRepository } from '@/main/orders/repository';
+import type { CollectorClient } from '@/main/collector/client';
 import { normalizeAmazonUrl } from '@/collector/amazon/url';
 import { channels } from '@/shared/channels';
 import {
@@ -27,6 +28,7 @@ type Dependencies = {
   prices?: PriceRepository;
   priceService?: PriceService;
   orders?: OrderRepository;
+  collector?: CollectorClient;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -36,6 +38,7 @@ const settingSchema = z.object({ key: z.string().trim().min(1).max(120), value: 
 const refreshSchema = z.object({ dollId: idSchema, regions: z.array(z.enum(['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'])).min(1) });
 const listingSchema = z.object({ dollId: idSchema, url: z.string().url().max(2048) });
 const reviewSchema = z.object({ listingId: idSchema, decision: z.enum(['confirm', 'reject']) });
+const resumeSchema = z.object({ requestId: idSchema, region: z.enum(['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it']) });
 const historySchema = z.object({ dollId: idSchema, range: z.enum(['7d', '30d', '90d', 'all']).default('30d') });
 const orderStatusSchema = z.enum(['new', 'awaiting_payment', 'ordered', 'shipped', 'warehouse', 'in_transit', 'received', 'delivered']);
 const orderCreateSchema = z.object({ snapshotId: idSchema, customerContact: z.string().trim().min(1).max(160), localShippingMinor: z.number().int().nonnegative(), localShippingRateToKztMicros: z.number().int().positive(), weightGrams: z.number().int().positive(), internationalRateMinorPerKg: z.number().int().nonnegative(), internationalRateCurrency: z.string().trim().min(3).max(3), internationalRateToKztMicros: z.number().int().positive(), extraCostsKztMinor: z.number().int().nonnegative(), customerPriceKztMinor: z.number().int().nonnegative(), notes: z.string().trim().max(2000).nullable().default(null) });
@@ -121,6 +124,11 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
   registrar.handle(channels.amazonReviewCandidate, validated(reviewSchema, ({ listingId, decision }) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
     return dependencies.prices.reviewCandidate(listingId, decision);
+  }));
+  registrar.handle(channels.amazonResumeRegion, validated(resumeSchema, ({ requestId, region }): null => {
+    if (!dependencies.collector) throw new Error('Collector is unavailable');
+    dependencies.collector.resume(requestId, region);
+    return null;
   }));
   registrar.handle(channels.pricesCurrent, validated(idSchema, (id) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
