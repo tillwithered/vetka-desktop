@@ -24,15 +24,20 @@ import { CatalogScanService } from './main/catalog/scan-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
 import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
+import { acquireSingleInstanceLock } from './main/single-instance';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
 let catalogScan: CatalogScanService | undefined;
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (started) {
-  app.quit();
-}
+// Squirrel must never leave an old app-X.Y.Z process alive beside the new release.
+const shouldStart = !started && acquireSingleInstanceLock(app, () => {
+  const mainWindow = BrowserWindow.getAllWindows()[0];
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
+if (!shouldStart) app.quit();
 
 export const createWindow = () => {
   // Create the browser window.
@@ -66,6 +71,7 @@ export const createWindow = () => {
   return mainWindow;
 };
 
+if (shouldStart) {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -167,6 +173,7 @@ app.on('activate', () => {
     createWindow();
   }
 });
+}
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
