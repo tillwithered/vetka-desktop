@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "Vetka Desktop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Локальная рабочая система Vetka Dolls",
   "main": ".vite/build/main.js",
   "private": true,

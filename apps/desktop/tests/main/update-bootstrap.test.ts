@@ -8,18 +8,16 @@ import {
 import { channels } from '@/shared/channels';
 
 describe('update bootstrap', () => {
-  it('builds the exact public Windows x64 feed URL', () => {
+  it('builds a direct GitHub Releases feed for Windows x64', () => {
     expect(buildUpdateFeedUrl({ platform: 'win32', arch: 'x64', version: '1.0.0' })).toBe(
-      'https://update.electronjs.org/tillwithered/vetka-desktop/win32-x64/1.0.0',
+      'https://github.com/tillwithered/vetka-desktop/releases/latest/download',
     );
   });
 
-  it('encodes the version segment and rejects unsupported targets', () => {
-    expect(
-      buildUpdateFeedUrl({ platform: 'win32', arch: 'x64', version: '1.0.0 beta' })?.endsWith(
-        '/1.0.0%20beta',
-      ),
-    ).toBe(true);
+  it('uses the same latest-release feed for every installed Windows version and rejects unsupported targets', () => {
+    expect(buildUpdateFeedUrl({ platform: 'win32', arch: 'x64', version: '1.0.0 beta' })).toBe(
+      'https://github.com/tillwithered/vetka-desktop/releases/latest/download',
+    );
     expect(buildUpdateFeedUrl({ platform: 'linux', arch: 'x64', version: '1.0.0' })).toBeNull();
     expect(buildUpdateFeedUrl({ platform: 'win32', arch: 'arm64', version: '1.0.0' })).toBeNull();
   });
