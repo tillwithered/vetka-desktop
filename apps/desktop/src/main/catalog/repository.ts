@@ -98,6 +98,11 @@ export class CatalogRepository {
     return this.mapRows(this.db.prepare('select * from catalog_entries order by name').all() as Record<string, unknown>[]);
   }
 
+  getBySku(mattelSku: string): CatalogEntry | null {
+    const rows = this.mapRows(this.db.prepare('select * from catalog_entries where mattel_sku = ?').all(mattelSku.trim().toUpperCase()) as Record<string, unknown>[]);
+    return rows[0] ?? null;
+  }
+
   private listByStatus(status: 'active' | 'monitor_only'): CatalogEntry[] {
     return this.mapRows(this.db.prepare(`
       select * from catalog_entries

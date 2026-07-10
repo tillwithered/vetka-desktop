@@ -44,7 +44,7 @@ export function parseOfficialStoreDoll(html: string, region: AmazonRegion, url: 
   const title = page.title ?? '';
   const sku = title.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
   const price = page.regularPrice ?? page.primePrice ?? page.subscriptionPrice;
-  if (page.status !== 'verified' || !sku || !price || !page.availability || !monsterHighPattern.test(title) || !dollPattern.test(title) || nonDollPattern.test(title)) return null;
+  if (page.status !== 'verified' || !sku || !price || !page.availability || page.availability === 'out_of_stock' || !monsterHighPattern.test(title) || !dollPattern.test(title) || nonDollPattern.test(title)) return null;
   return {
     region, asin, url, name: title, mattelSku: sku, imageUrl: page.imageUrl ?? null, price,
     seller: page.seller, fulfilledByAmazon: page.fulfilledByAmazon, availability: page.availability,

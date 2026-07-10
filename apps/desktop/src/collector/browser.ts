@@ -74,6 +74,7 @@ export class BrowserCollectorDriver implements CollectorDriver {
   constructor(private readonly dataDir: string, private readonly executablePath = findBrowserExecutable()) {}
 
   async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url); }
+  async openStore(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url); }
   async search(region: AmazonRegion, term: string): Promise<string> {
     const config = amazonRegions[region];
     return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`);

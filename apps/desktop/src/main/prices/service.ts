@@ -4,6 +4,7 @@ import type { CollectorClient } from '@/main/collector/client';
 import type { AmazonRegion } from '@/shared/contracts';
 import type { CatalogEntry } from '@/main/catalog/repository';
 import type { AmazonCurrency } from '@/collector/amazon/regions';
+import type { OfficialStoreDoll } from '@/collector/amazon/store';
 
 import type { PriceRepository, CheckStatus } from './repository';
 
@@ -31,6 +32,24 @@ export class PriceService {
       requiredTerms: entry.requiredTerms,
       rejectTerms: entry.rejectTerms,
     });
+  }
+
+  persistOfficialStoreOffer(dollId: string, offer: OfficialStoreDoll): void {
+    const listing = this.dependencies.prices.ensureListing({
+      dollId, region: offer.region, asin: offer.asin, url: offer.url,
+      status: 'confirmed', confirmationSource: 'deterministic_match',
+    });
+    this.dependencies.prices.applyCheck({
+      listingId: listing.id, status: 'verified', checkedAt: new Date().toISOString(),
+      diagnostic: { source: 'official_monster_high_store', mattelSku: offer.mattelSku },
+      offer: {
+        offerKind: 'regular', priceMinor: offer.price.minor, currency: offer.price.currency,
+        shippingMinor: null, sellerName: offer.seller, fulfilledByAmazon: offer.fulfilledByAmazon,
+        availability: offer.availability, condition: 'New', couponText: null,
+        rateToKztMicros: this.dependencies.getRate(offer.price.currency),
+      },
+    });
+    if (offer.imageUrl) this.dependencies.db.prepare('update dolls set image_path = coalesce(image_path, ?) where id = ?').run(offer.imageUrl, dollId);
   }
 
   private async refresh(
