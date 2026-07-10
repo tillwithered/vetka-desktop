@@ -16,6 +16,7 @@ export function DollsPage() {
   const [query, setQuery] = useState('');
   const client = useQueryClient();
   const dolls = useQuery({ queryKey: ['dolls', query], queryFn: async () => unwrap(await window.vetka.dolls.list(query ? { query } : {})) });
+  const prices = useQuery({ queryKey: ['doll-price-summary', query], enabled: !!dolls.data, queryFn: async () => unwrap(await window.vetka.prices.currentForDolls((dolls.data ?? []).map((doll) => doll.id))) });
   const favorite = useMutation({
     mutationFn: async (doll: NonNullable<typeof dolls.data>[number]) => unwrap(await window.vetka.dolls.setFavorite(doll.id, !doll.isFavorite)),
     onSuccess: async () => client.invalidateQueries({ queryKey: ['dolls'] }),
@@ -29,7 +30,7 @@ export function DollsPage() {
       <span className="text-sm text-muted-foreground">{dolls.data?.length ?? 0} карточек</span>
     </PageToolbar>
     {dolls.isLoading ? <div className="rounded-xl border p-6 text-sm text-muted-foreground">Загружаю каталог…</div>
-      : dolls.data?.length ? <TableSurface><DollTable dolls={dolls.data} onFavorite={(doll) => favorite.mutate(doll)} /></TableSurface>
+      : dolls.data?.length ? <TableSurface><DollTable dolls={dolls.data} pricesByDoll={prices.data} onFavorite={(doll) => favorite.mutate(doll)} /></TableSurface>
         : <EmptyState title={query ? 'Ничего не найдено' : 'Каталог пока пуст'} description={query ? 'Попробуйте изменить запрос.' : 'Добавьте первую куклу, чтобы начать отслеживать цены.'} action={!query ? <AddDollDialog /> : undefined} />}
   </section>;
 }

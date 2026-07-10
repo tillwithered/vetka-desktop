@@ -145,6 +145,7 @@ export type VetkaDesktopApi = {
   };
   prices: {
     current(dollId: string): Promise<ApiResult<CurrentPrice[]>>;
+    currentForDolls(dollIds: string[]): Promise<ApiResult<Record<string, CurrentPrice[]>>>;
     history(dollId: string, range?: '7d' | '30d' | '90d' | 'all'): Promise<ApiResult<PriceHistoryRecord[]>>;
   };
   orders: {

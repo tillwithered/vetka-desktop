@@ -184,6 +184,10 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
     return dependencies.prices.current(id);
   }));
+  registrar.handle(channels.pricesCurrentForDolls, validated(z.array(idSchema).max(200), (ids) => {
+    if (!dependencies.prices) throw new Error('Price workspace is unavailable');
+    return dependencies.prices.currentForDolls(ids);
+  }));
   registrar.handle(channels.pricesHistory, validated(historySchema, ({ dollId, range }) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
     return dependencies.prices.history(dollId, range);

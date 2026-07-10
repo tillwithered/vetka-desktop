@@ -135,6 +135,10 @@ export class PriceRepository {
     }));
   }
 
+  currentForDolls(dollIds: readonly string[]) {
+    return Object.fromEntries(dollIds.map((dollId) => [dollId, this.current(dollId)]));
+  }
+
   history(dollId: string, range: '7d' | '30d' | '90d' | 'all' = '30d') {
     const days = range === 'all' ? null : Number(range.slice(0, -1));
     const cutoff = days ? new Date(Date.now() - days * 86_400_000).toISOString() : null;
