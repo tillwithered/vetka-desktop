@@ -15,6 +15,9 @@ import { PriceService } from './main/prices/service';
 import { OrderRepository } from './main/orders/repository';
 import { secureWebPreferences } from './main/window-options';
 import { channels } from './shared/channels';
+import { broadcastUpdateState, buildUpdateFeedUrl, isSquirrelFirstRun } from './main/updates/bootstrap';
+import { ElectronUpdaterAdapter } from './main/updates/electron-adapter';
+import { UpdateService } from './main/updates/service';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
@@ -68,6 +71,21 @@ app.whenReady().then(async () => {
   const settings = new SettingsRepository(database);
   const prices = new PriceRepository(database);
   const orders = new OrderRepository(database);
+  const feedUrl = buildUpdateFeedUrl({
+    platform: process.platform,
+    arch: process.arch,
+    version: app.getVersion(),
+  });
+  const updates = feedUrl
+    ? new UpdateService({
+      updater: new ElectronUpdaterAdapter(),
+      feedUrl,
+      packaged: app.isPackaged,
+      firstRun: isSquirrelFirstRun(process.argv),
+      schedule: (callback, delayMs) => setTimeout(callback, delayMs),
+      onStateChanged: (state) => broadcastUpdateState(BrowserWindow.getAllWindows(), state),
+    })
+    : undefined;
   collector = new CollectorClient({ workerPath: path.join(__dirname, 'worker.js') });
   collector.onProgress((event) => {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -93,9 +111,11 @@ app.whenReady().then(async () => {
     priceService,
     orders,
     collector,
+    updates,
     version: () => app.getVersion(),
   });
-  createWindow();
+  const mainWindow = createWindow();
+  mainWindow.once('ready-to-show', () => updates?.start());
 });
 
 app.on('before-quit', () => {
