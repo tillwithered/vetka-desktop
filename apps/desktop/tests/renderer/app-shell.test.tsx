@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 
 import { App } from '@/renderer/app';
 
-describe('App', () => {
-  it('renders the four V0 destinations', () => {
+describe('App shell', () => {
+  it('renders compact navigation and a quick add action', () => {
     render(<App />);
 
-    expect(screen.getAllByText('Избранное').length).toBeGreaterThan(0);
-    expect(screen.getByText('Куклы')).toBeInTheDocument();
-    expect(screen.getByText('Заказы')).toBeInTheDocument();
-    expect(screen.getByText('Настройки')).toBeInTheDocument();
+    expect(screen.getByRole('navigation')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Избранное' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Куклы' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Заказы' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Настройки' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Добавить куклу' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /sidebar/i })).toBeInTheDocument();
   });
 });
