@@ -38,6 +38,7 @@ export class ElectronUpdaterAdapter implements UpdaterAdapter {
   }
 
   quitAndInstall(): void {
-    autoUpdater.quitAndInstall();
+    // This tells Squirrel to relaunch from the root launcher rather than app-X.Y.Z.
+    (autoUpdater.quitAndInstall as unknown as (isSilent: boolean, isForceRunAfter: boolean) => void)(false, true);
   }
 }

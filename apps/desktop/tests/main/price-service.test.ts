@@ -38,7 +38,7 @@ describe('PriceService', () => {
 
     expect(collector.refreshDoll).toHaveBeenCalledWith(expect.objectContaining({
       doll: expect.objectContaining({ mattelSku: 'JMB92' }),
-      catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+      catalogRules: { mattelSku: 'JMB92', upcEan: null, requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
     }));
   });
 
@@ -81,5 +81,20 @@ describe('PriceService', () => {
     await service.refreshDoll(doll.id, ['amazon_es']);
 
     expect(db.prepare('select status from price_checks where listing_id = ?').get(listing.id)).toEqual({ status: 'no_price' });
+  });
+
+  it('saves a confirmed Amazon thumbnail without replacing a manual image', async () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const dolls = new DollRepository(db);
+    const doll = dolls.create({ name: 'Draculaura' });
+    const prices = new PriceRepository(db);
+    prices.ensureListing({ dollId: doll.id, region: 'amazon_us', asin: 'B0CXYZ1234', url: 'https://www.amazon.com/dp/B0CXYZ1234', status: 'confirmed' });
+    const collector = { refreshDoll: vi.fn(async () => ({ requestId: 'thumbnail', regions: { amazon_us: { status: 'verified', region: 'amazon_us', asin: 'B0CXYZ1234', title: 'Draculaura', imageUrl: 'https://images.example/auto.jpg', regularPrice: { minor: 2499, currency: 'USD' as const }, primePrice: null, subscriptionPrice: null, couponText: null, seller: null, fulfilledByAmazon: true, availability: 'in_stock' as const, condition: 'New' as const, url: 'https://www.amazon.com/dp/B0CXYZ1234', reviewCandidates: [] } } } as CollectorDollResult)) };
+    const service = new PriceService({ db, prices, collector, dataDir: 'C:/data', getRate: () => 514_200_000 });
+    await service.refreshDoll(doll.id, ['amazon_us']);
+    expect(dolls.get(doll.id)?.imagePath).toBe('https://images.example/auto.jpg');
+    dolls.update(doll.id, { imagePath: 'C:/manual.jpg' });
+    await service.refreshDoll(doll.id, ['amazon_us']);
+    expect(dolls.get(doll.id)?.imagePath).toBe('C:/manual.jpg');
   });
 });

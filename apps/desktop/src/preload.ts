@@ -14,6 +14,9 @@ const api: VetkaDesktopApi = {
     onStateChanged: (listener) => {
       const handler = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state);
       ipcRenderer.on(channels.updatesStateChanged, handler);
+      void ipcRenderer.invoke(channels.updatesGetState).then((result) => {
+        if (result?.ok) listener(result.data);
+      });
       return () => ipcRenderer.removeListener(channels.updatesStateChanged, handler);
     },
   },

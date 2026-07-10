@@ -135,6 +135,7 @@ app.whenReady().then(async () => {
     collector,
     updates,
     scanService: catalogScan,
+    refreshRates: () => nbkRates.refresh(),
     version: () => app.getVersion(),
   });
   createWindow();

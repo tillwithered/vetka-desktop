@@ -28,15 +28,17 @@ export async function collectDoll(
         region,
         expectedAsin: listing.asin,
       });
+      let matchDiagnostic;
       if (page.status === 'verified' && request.catalogRules) {
         const match = matchCatalogOffer(request.catalogRules, {
           title: page.title,
           evidenceText: `${page.title ?? ''} ${html}`,
           condition: page.condition,
         });
+        matchDiagnostic = match;
         if (match.status !== 'verified') continue;
       }
-      result.regions[region] = { ...page, region, url: listing.url, reviewCandidates: [] };
+      result.regions[region] = { ...page, region, url: listing.url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
       if (page.status === 'verified' || page.status === 'captcha_required') {
         if (page.status === 'captcha_required') progress('captcha_required', region);
         accepted = true;
@@ -45,9 +47,9 @@ export async function collectDoll(
     }
     if (accepted) continue;
 
-    const terms = request.catalogRules ? [request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.mattelSku] : [request.doll.name, request.doll.mattelSku, request.doll.upcEan]
+    const terms = request.catalogRules ? [request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.mattelSku, request.catalogRules.upcEan] : [request.doll.name, request.doll.mattelSku, request.doll.upcEan]
       .filter((term): term is string => Boolean(term?.trim()))
-      .slice(0, 3);
+      .slice(0, 4);
     const candidates = [];
     const seen = new Set<string>();
     for (const term of terms) {
@@ -72,7 +74,7 @@ export async function collectDoll(
         ? matchCatalogOffer(request.catalogRules, { title: page.title, evidenceText: `${page.title ?? ''} ${html}`, condition: page.condition })
         : matchAmazonProduct(request.doll, candidate);
       if (match.status !== 'verified') continue;
-      result.regions[region] = { ...page, region, url: candidate.canonicalUrl, reviewCandidates: [] };
+      result.regions[region] = { ...page, region, url: candidate.canonicalUrl, reviewCandidates: [], matchDiagnostic: match };
       accepted = true;
       break;
     }

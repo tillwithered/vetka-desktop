@@ -4,25 +4,28 @@ import path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 
 import type { AmazonRegion } from '@/shared/contracts';
-
 import type { CollectorDriver } from './amazon/collect';
 import { amazonRegions } from './amazon/regions';
 
 export class BrowserNotFoundError extends Error {
   readonly code = 'browser_not_found';
   constructor() {
-    super('Не найден Google Chrome или Microsoft Edge. Установите один из браузеров и повторите проверку.');
+    super('Не найден встроенный Chromium. Переустановите Vetka Desktop.');
   }
 }
 
-export function findBrowserExecutable(environment: NodeJS.ProcessEnv = process.env): string | null {
-  const runtimeManifest = path.join(process.resourcesPath ?? '', 'playwright-chromium.json');
+export function findBrowserExecutable(
+  environment: NodeJS.ProcessEnv = process.env,
+  resourcesPath: string | undefined = process.resourcesPath,
+): string | null {
+  const runtimeManifest = path.join(resourcesPath ?? '', 'playwright-chromium.json');
   if (existsSync(runtimeManifest)) {
     const { executable } = JSON.parse(readFileSync(runtimeManifest, 'utf8')) as { executable: string };
-    const bundled = path.join(process.resourcesPath, 'playwright-chromium', executable);
+    const bundled = path.join(resourcesPath!, 'playwright-chromium', executable);
     if (existsSync(bundled)) return bundled;
   }
-  if (existsSync(path.join(process.resourcesPath ?? '', 'app.asar'))) return null;
+  // A packaged app is intentionally independent of Chrome/Edge installed by the user.
+  if (existsSync(path.join(resourcesPath ?? '', 'app.asar'))) return null;
   const candidates = [
     [environment.PROGRAMFILES, 'Google/Chrome/Application/chrome.exe'],
     [environment['PROGRAMFILES(X86)'], 'Google/Chrome/Application/chrome.exe'],
@@ -48,63 +51,63 @@ export function shouldRetryNavigationError(error: unknown): boolean {
 
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
-  const requirePlaywright = existsSync(packagedManifest)
-    ? createRequire(packagedManifest)
-    : createRequire(__filename);
-  return (existsSync(packagedManifest)
-    ? requirePlaywright('./')
-    : requirePlaywright('playwright-core')) as typeof import('playwright-core');
+  const requirePlaywright = existsSync(packagedManifest) ? createRequire(packagedManifest) : createRequire(__filename);
+  return (existsSync(packagedManifest) ? requirePlaywright('./') : requirePlaywright('playwright-core')) as typeof import('playwright-core');
 }
 
 export class BrowserCollectorDriver implements CollectorDriver {
   private readonly contexts = new Map<AmazonRegion, BrowserContext>();
-  private readonly challengePages = new Map<AmazonRegion, Page>();
+  private readonly challengeContexts = new Map<AmazonRegion, BrowserContext>();
 
-  constructor(
-    private readonly dataDir: string,
-    private readonly executablePath = findBrowserExecutable(),
-  ) {}
+  constructor(private readonly dataDir: string, private readonly executablePath = findBrowserExecutable()) {}
 
-  async openProduct(region: AmazonRegion, url: string): Promise<string> {
-    return this.open(region, url);
-  }
-
+  async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url); }
   async search(region: AmazonRegion, term: string): Promise<string> {
     const config = amazonRegions[region];
     return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`);
   }
 
   async closeChallenge(region: AmazonRegion): Promise<void> {
-    const page = this.challengePages.get(region);
-    if (page) await page.close().catch((): undefined => undefined);
-    this.challengePages.delete(region);
+    const context = this.challengeContexts.get(region);
+    if (context) await context.close().catch((): undefined => undefined);
+    this.challengeContexts.delete(region);
   }
 
   async close(): Promise<void> {
-    await Promise.all(
-      [...this.contexts.values()].map(
-        (context): Promise<void> => context.close().catch((): undefined => undefined),
-      ),
-    );
+    const contexts = [...this.contexts.values(), ...this.challengeContexts.values()];
+    await Promise.all(contexts.map((context) => context.close().catch((): undefined => undefined)));
     this.contexts.clear();
-    this.challengePages.clear();
+    this.challengeContexts.clear();
+  }
+
+  private async launchContext(region: AmazonRegion, headless: boolean): Promise<BrowserContext> {
+    if (!this.executablePath) throw new BrowserNotFoundError();
+    const config = amazonRegions[region];
+    return loadPlaywright().chromium.launchPersistentContext(path.join(this.dataDir, 'amazon-profiles', region), {
+      executablePath: this.executablePath,
+      headless,
+      locale: config.locale,
+      viewport: { width: 1365, height: 900 },
+    });
   }
 
   private async context(region: AmazonRegion): Promise<BrowserContext> {
     const existing = this.contexts.get(region);
     if (existing && canReuseBrowserContext(existing)) return existing;
     if (existing) this.contexts.delete(region);
-    if (!this.executablePath) throw new BrowserNotFoundError();
-    const config = amazonRegions[region];
-    const profileDirectory = path.join(this.dataDir, 'amazon-profiles', region);
-    const context = await loadPlaywright().chromium.launchPersistentContext(profileDirectory, {
-      executablePath: this.executablePath,
-      headless: true,
-      locale: config.locale,
-      viewport: { width: 1365, height: 900 },
-    });
+    const context = await this.launchContext(region, true);
     this.contexts.set(region, context);
     return context;
+  }
+
+  private async showCaptcha(region: AmazonRegion, url: string, context: BrowserContext): Promise<void> {
+    await context.close().catch((): undefined => undefined);
+    this.contexts.delete(region);
+    await this.closeChallenge(region);
+    const challengeContext = await this.launchContext(region, false);
+    this.challengeContexts.set(region, challengeContext);
+    const page = await challengeContext.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch((): undefined => undefined);
   }
 
   private async open(region: AmazonRegion, url: string): Promise<string> {
@@ -113,16 +116,12 @@ export class BrowserCollectorDriver implements CollectorDriver {
 
   private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean): Promise<string> {
     const context = await this.context(region);
-    const page = await context.newPage();
+    const page: Page = await context.newPage();
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
       const html = await page.content();
-      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) {
-        await this.closeChallenge(region);
-        this.challengePages.set(region, page);
-      } else {
-        await page.close();
-      }
+      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) await this.showCaptcha(region, url, context);
+      else await page.close();
       return html;
     } catch (error) {
       await page.close().catch((): undefined => undefined);

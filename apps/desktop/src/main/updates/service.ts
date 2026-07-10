@@ -28,6 +28,7 @@ type UpdateServiceOptions = {
 };
 
 const SAFE_UPDATE_ERROR = 'Не удалось проверить обновления. Приложение продолжит работать.';
+const UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 
 export class UpdateNotReadyError extends Error {
   constructor() {
@@ -36,6 +37,7 @@ export class UpdateNotReadyError extends Error {
   }
 }
 
+/** Owns the update state in main so a renderer may subscribe at any time. */
 export class UpdateService {
   private state: UpdateState = { status: 'idle' };
   private started = false;
@@ -45,15 +47,9 @@ export class UpdateService {
   start(): void {
     if (!this.options.packaged || this.started) return;
     this.started = true;
-
     this.bindEvents();
     this.options.updater.setFeedURL({ url: this.options.feedUrl });
-    this.options.schedule(
-      () => {
-        void this.check();
-      },
-      this.options.firstRun ? 10_000 : 1_000,
-    );
+    this.scheduleCheck(this.options.firstRun ? 10_000 : 1_000);
   }
 
   getState(): UpdateState {
@@ -62,7 +58,7 @@ export class UpdateService {
 
   async check(): Promise<UpdateState> {
     if (!this.options.packaged) return this.state;
-    if (this.state.status === 'checking' || this.state.status === 'available') return this.state;
+    if (this.state.status === 'checking' || this.state.status === 'available' || this.state.status === 'downloaded') return this.state;
 
     this.setState({ status: 'checking' });
     try {
@@ -80,16 +76,16 @@ export class UpdateService {
 
   private bindEvents(): void {
     this.options.updater.on('checking-for-update', () => this.setState({ status: 'checking' }));
-    this.options.updater.on('update-available', (metadata) => {
-      this.setState({ status: 'available', version: metadata?.version ?? null });
-    });
+    this.options.updater.on('update-available', (metadata) => this.setState({ status: 'available', version: metadata?.version ?? null }));
     this.options.updater.on('update-not-available', () => this.setState({ status: 'idle' }));
-    this.options.updater.on('update-downloaded', (metadata) => {
-      this.setState({ status: 'downloaded', version: metadata?.version ?? null });
-    });
-    this.options.updater.on('error', () => {
-      this.setState({ status: 'error', message: SAFE_UPDATE_ERROR });
-    });
+    this.options.updater.on('update-downloaded', (metadata) => this.setState({ status: 'downloaded', version: metadata?.version ?? null }));
+    this.options.updater.on('error', () => this.setState({ status: 'error', message: SAFE_UPDATE_ERROR }));
+  }
+
+  private scheduleCheck(delayMs: number): void {
+    this.options.schedule(() => {
+      void this.check().finally(() => this.scheduleCheck(UPDATE_INTERVAL_MS));
+    }, delayMs);
   }
 
   private setState(state: UpdateState): void {

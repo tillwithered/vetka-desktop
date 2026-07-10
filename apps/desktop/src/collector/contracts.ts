@@ -1,6 +1,6 @@
 import type { AmazonPageResult } from './amazon/product-page';
 import type { AmazonCandidate } from './amazon/search';
-import type { CatalogOfferRules } from './amazon/matching';
+import type { CatalogOfferRules, MatchDecision } from './amazon/matching';
 import type { AmazonRegion } from '@/shared/contracts';
 
 export type CollectorDollIdentity = {
@@ -40,6 +40,7 @@ export type CollectorRegionResult = AmazonPageResult & {
   region: AmazonRegion;
   url: string | null;
   reviewCandidates: AmazonCandidate[];
+  matchDiagnostic?: MatchDecision;
 };
 
 export type CollectorDollResult = {

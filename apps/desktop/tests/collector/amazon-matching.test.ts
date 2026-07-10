@@ -28,9 +28,9 @@ describe('matchAmazonProduct', () => {
 });
 
 describe('matchCatalogOffer', () => {
-  const rules = { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne', 'Moonspell Magic'], rejectTerms: ['used', 'outfit'] };
+  const rules = { mattelSku: 'JMB92', upcEan: '194735123456', requiredTerms: ['Willow Thorne', 'Moonspell Magic'], rejectTerms: ['used', 'outfit'] };
 
-  it('requires SKU evidence, one title term, New condition, and no reject term', () => {
+  it('confirms an exact SKU together with doll context', () => {
     expect(matchCatalogOffer(rules, {
       title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB92 Monster High', condition: 'New',
     })).toMatchObject({ status: 'verified' });
@@ -38,8 +38,8 @@ describe('matchCatalogOffer', () => {
       title: 'Monster High Willow Thorne outfit', evidenceText: 'Model JMB92 Monster High', condition: 'New',
     })).toMatchObject({ status: 'rejected', reason: 'reject_term' });
     expect(matchCatalogOffer(rules, {
-      title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB93 Monster High', condition: 'New',
-    })).toMatchObject({ status: 'rejected', reason: 'mattel_sku_missing' });
+      title: 'Willow Thorne', evidenceText: 'Model JMB93', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'insufficient_facts' });
   });
 
   it('does not reject a matching product because an unrelated page section mentions an accessory', () => {
@@ -48,5 +48,20 @@ describe('matchCatalogOffer', () => {
       evidenceText: 'Model JMB92 Customers also viewed an outfit accessory only',
       condition: 'New',
     })).toMatchObject({ status: 'verified' });
+  });
+
+  it('uses the fact triangle and rejects a single weak fact', () => {
+    expect(matchCatalogOffer(rules, {
+      title: 'Willow Thorne collector doll', evidenceText: 'EAN 194735123456', condition: 'New',
+    })).toMatchObject({ status: 'verified', facts: { upcEan: true, title: true } });
+    expect(matchCatalogOffer(rules, {
+      title: 'Willow Thorne', evidenceText: 'a random product', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'insufficient_facts' });
+  });
+
+  it('rejects Hunter x Hunter before it can become a catalog price', () => {
+    expect(matchCatalogOffer(rules, {
+      title: 'Hunter x Hunter HGC29 Figure', evidenceText: 'Model HGC29 anime figure', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'insufficient_facts' });
   });
 });

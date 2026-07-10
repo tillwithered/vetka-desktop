@@ -63,6 +63,11 @@ describe('parseAmazonProductPage', () => {
     });
   });
 
+  it('keeps an Amazon thumbnail alongside a verified product', () => {
+    const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Draculaura</span><img id="landingImage" src="https://images.example/doll.jpg"><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0CXYZ1234' })).toMatchObject({ status: 'verified', imageUrl: 'https://images.example/doll.jpg' });
+  });
+
   it('rejects a different product identity', () => {
     expect(parseAmazonProductPage(fixture('amazon_us'), { region: 'amazon_us' as AmazonRegion, expectedAsin: 'B000000000' }).status).toBe('identity_mismatch');
   });

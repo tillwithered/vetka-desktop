@@ -136,7 +136,32 @@ export class PriceRepository {
   }
 
   currentForDolls(dollIds: readonly string[]) {
-    return Object.fromEntries(dollIds.map((dollId) => [dollId, this.current(dollId)]));
+    const result = Object.fromEntries(dollIds.map((dollId) => [dollId, [] as ReturnType<PriceRepository['current']>]));
+    if (dollIds.length === 0) return result;
+    const placeholders = dollIds.map(() => '?').join(', ');
+    const rows = this.db.prepare(`
+      select l.doll_id, l.id as listing_id, l.region, l.asin, l.url,
+        s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
+        s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
+        s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
+        (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status
+      from price_snapshots s join amazon_listings l on l.id = s.listing_id
+      where l.doll_id in (${placeholders}) and l.status = 'confirmed'
+        and s.checked_at = (select max(s2.checked_at) from price_snapshots s2 where s2.listing_id = s.listing_id)
+      order by l.doll_id, l.region
+    `).all(...dollIds) as Row[];
+    for (const row of rows) {
+      const dollId = String(row.doll_id);
+      result[dollId]!.push({
+        listingId: String(row.listing_id), region: String(row.region) as AmazonRegion, asin: String(row.asin), url: String(row.url),
+        snapshotId: String(row.snapshot_id), offerKind: String(row.offer_kind), priceMinor: Number(row.price_minor), currency: String(row.currency) as AmazonCurrency,
+        shippingMinor: row.shipping_minor === null ? null : Number(row.shipping_minor), sellerName: row.seller_name === null ? null : String(row.seller_name),
+        fulfilledByAmazon: Number(row.fulfilled_by_amazon) === 1, availability: String(row.availability), condition: 'New' as const,
+        couponText: row.coupon_text === null ? null : String(row.coupon_text), rateToKztMicros: Number(row.rate_to_kzt_micros),
+        priceKztMinor: Number(row.price_kzt_minor), checkedAt: String(row.checked_at), latestCheckStatus: String(row.latest_check_status),
+      });
+    }
+    return result;
   }
 
   history(dollId: string, range: '7d' | '30d' | '90d' | 'all' = '30d') {

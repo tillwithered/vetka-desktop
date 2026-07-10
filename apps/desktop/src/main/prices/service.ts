@@ -26,6 +26,7 @@ export class PriceService {
     if (!entry.dollId) throw new Error('Catalog entry has no doll');
     return this.refresh(entry.dollId, regions, {
       mattelSku: entry.mattelSku,
+      upcEan: null,
       requiredTerms: entry.requiredTerms,
       rejectTerms: entry.rejectTerms,
     });
@@ -34,10 +35,13 @@ export class PriceService {
   private async refresh(
     dollId: string,
     regions: AmazonRegion[],
-    catalogRules?: { mattelSku: string; requiredTerms: readonly string[]; rejectTerms: readonly string[] },
+    catalogRules?: { mattelSku: string; upcEan?: string | null; requiredTerms: readonly string[]; rejectTerms: readonly string[] },
   ) {
     const doll = this.dependencies.db.prepare('select * from dolls where id = ?').get(dollId) as Record<string, unknown> | undefined;
     if (!doll) throw new Error('Doll not found');
+    const effectiveCatalogRules = catalogRules
+      ? { ...catalogRules, upcEan: doll.upc_ean === null ? null : String(doll.upc_ean) }
+      : undefined;
     const listings = this.dependencies.prices.listListings(dollId);
     const knownListings = listings.filter((listing) => listing.status === 'confirmed').map((listing) => ({
       region: listing.region, asin: listing.asin, url: listing.url, confirmed: true,
@@ -60,7 +64,7 @@ export class PriceService {
         },
         knownListings,
         regions: [region],
-        ...(catalogRules ? { catalogRules } : {}),
+        ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
       });
       if (!combined.requestId) combined.requestId = result.requestId;
       Object.assign(combined.regions, result.regions);
@@ -80,6 +84,7 @@ export class PriceService {
             status: regionResult.status as CheckStatus,
             checkedAt: new Date().toISOString(),
             offer: null,
+            diagnostic: regionResult.matchDiagnostic,
           });
         }
         continue;
@@ -92,6 +97,7 @@ export class PriceService {
         listingId: listing.id,
         status: regionResult.status as CheckStatus,
         checkedAt: new Date().toISOString(),
+        diagnostic: regionResult.matchDiagnostic,
         offer: regionResult.status === 'verified' && selected && regionResult.condition === 'New' && regionResult.availability && regionResult.availability !== 'out_of_stock'
           ? {
               offerKind,

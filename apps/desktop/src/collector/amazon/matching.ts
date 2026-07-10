@@ -18,10 +18,19 @@ export type MatchDecision = {
   status: 'verified' | 'needs_review' | 'rejected';
   score: number;
   reason: string;
+  facts?: MatchFacts;
+};
+
+export type MatchFacts = {
+  mattelSku: boolean;
+  upcEan: boolean;
+  title: boolean;
+  dollContext: boolean;
 };
 
 export type CatalogOfferRules = {
   mattelSku: string;
+  upcEan?: string | null;
   requiredTerms: readonly string[];
   rejectTerms: readonly string[];
 };
@@ -30,6 +39,7 @@ const negativeAccessoryPattern = /\b(accessor(?:y|ies)|replacement|shoes?|boots?
 const normalized = (value: string | null | undefined) => value?.trim().toLowerCase() ?? '';
 const exact = (left: string | null | undefined, right: string | null | undefined) => Boolean(normalized(left) && normalized(left) === normalized(right));
 const contains = (text: string, value: string | null | undefined) => Boolean(normalized(value) && text.includes(normalized(value)));
+const dollContext = (text: string) => /monster\s+high|mattel|fashion\s+doll|doll\b/i.test(text);
 
 function overlap(left: string, right: string): number {
   const ignored = new Set(['the', 'and', 'with', 'doll', 'puppe', 'muñeca', 'bambola']);
@@ -64,13 +74,20 @@ export function matchCatalogOffer(
 ): MatchDecision {
   const evidence = normalized(candidate.evidenceText);
   const title = normalized(candidate.title);
-  if (!evidence.includes(normalized(rules.mattelSku))) return { status: 'rejected', score: 0, reason: 'mattel_sku_missing' };
-  if (candidate.condition !== 'New') return { status: 'rejected', score: 0, reason: 'condition_not_new' };
+  const facts: MatchFacts = {
+    mattelSku: contains(evidence, rules.mattelSku),
+    upcEan: contains(evidence, rules.upcEan),
+    title: rules.requiredTerms.some((term) => contains(title, term)),
+    dollContext: dollContext(`${candidate.title ?? ''} ${candidate.evidenceText}`),
+  };
+  if (candidate.condition !== 'New') return { status: 'rejected', score: 0, reason: 'condition_not_new', facts };
   if (rules.rejectTerms.some((term) => title.includes(normalized(term)))) {
-    return { status: 'rejected', score: 0, reason: 'reject_term' };
+    return { status: 'rejected', score: 0, reason: 'reject_term', facts };
   }
-  if (!rules.requiredTerms.some((term) => title.includes(normalized(term)))) {
-    return { status: 'rejected', score: 0, reason: 'required_term_missing' };
+  const factCount = [facts.mattelSku, facts.upcEan, facts.title].filter(Boolean).length;
+  const exactIdWithContext = (facts.mattelSku || facts.upcEan) && facts.dollContext;
+  if (factCount >= 2 || exactIdWithContext) {
+    return { status: 'verified', score: 100, reason: exactIdWithContext ? 'exact_id_with_context' : 'fact_triangle', facts };
   }
-  return { status: 'verified', score: 100, reason: 'catalog_rules' };
+  return { status: 'rejected', score: factCount * 30, reason: 'insufficient_facts', facts };
 }

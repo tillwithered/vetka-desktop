@@ -33,6 +33,7 @@ type Dependencies = {
   collector?: CollectorClient;
   updates?: Pick<UpdateService, 'getState' | 'check' | 'restartAndInstall'>;
   scanService?: Pick<CatalogScanService, 'getState' | 'runNow'>;
+  refreshRates?: () => Promise<unknown>;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -150,10 +151,11 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
       return failure(error);
     }
   });
-  registrar.handle(
-    channels.settingsSet,
-    validated(settingSchema, ({ key, value }) => dependencies.settings.set(key, value)),
-  );
+  registrar.handle(channels.settingsSet, validated(settingSchema, async ({ key, value }) => {
+    const saved = dependencies.settings.set(key, value);
+    if (key === 'exchangeRatesMode' && value === 'auto') await dependencies.refreshRates?.();
+    return saved;
+  }));
   registrar.handle(channels.amazonAddListing, validated(listingSchema, ({ dollId, url }) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
     if (!dependencies.dolls.get(dollId)) throw new Error('Doll not found');

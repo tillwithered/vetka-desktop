@@ -51,6 +51,15 @@ jobs:
       - name: Build Squirrel.Windows artifacts
         run: npm run make
 
+      - name: Verify bundled Chromium in packaged app
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem -LiteralPath 'out' -Recurse -Filter 'playwright-chromium.json' -File | Select-Object -First 1
+          if (-not $manifest) { throw 'Missing packaged Playwright Chromium manifest' }
+          $runtime = Get-Content -LiteralPath $manifest.FullName -Raw | ConvertFrom-Json
+          $executable = Join-Path (Join-Path $manifest.Directory.FullName 'playwright-chromium') $runtime.executable
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) { throw "Missing packaged Chromium executable: $executable" }
+
       - name: Prepare release assets and checksums
         shell: pwsh
         run: |
