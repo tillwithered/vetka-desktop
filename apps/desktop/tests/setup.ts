@@ -32,6 +32,13 @@ const testApi: VetkaDesktopApi = {
     onProgress: () => (): void => undefined,
   },
   prices: { current: async () => ({ ok: true, data: [] }), history: async () => ({ ok: true, data: [] }) },
+  orders: {
+    list: async () => ({ ok: true, data: [] }),
+    get: async () => ({ ok: true, data: null }),
+    create: async () => ({ ok: false, error: { code: 'TEST', message: 'Not mocked' } }),
+    transition: async () => ({ ok: false, error: { code: 'TEST', message: 'Not mocked' } }),
+    updateTracking: async () => ({ ok: false, error: { code: 'TEST', message: 'Not mocked' } }),
+  },
 };
 
 Object.defineProperty(window, 'vetka', {

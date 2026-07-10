@@ -12,6 +12,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { DollsPage } from '@/renderer/features/dolls/dolls-page';
 import { DollDetailPage } from '@/renderer/features/dolls/doll-detail-page';
 import { HomePage } from '@/renderer/features/home/home-page';
+import { OrdersPage } from '@/renderer/features/orders/orders-page';
+import { OrderDetailPage } from '@/renderer/features/orders/order-detail-page';
+import { SettingsPage } from '@/renderer/features/settings/settings-page';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 10_000 } } });
 const destinations = [
@@ -30,17 +33,14 @@ function Navigation() {
   </Sidebar>;
 }
 
-function PlaceholderPage({ title, description }: { title: string; description: string }) {
-  return <section className="flex flex-1 flex-col gap-6 p-6"><div><h1 className="text-2xl font-semibold">{title}</h1><p className="text-sm text-muted-foreground">{description}</p></div><Card><CardHeader><CardTitle>Раздел подключается</CardTitle><CardDescription>Локальная база уже готова.</CardDescription></CardHeader></Card></section>;
-}
-
 function Shell() {
   return <SidebarProvider><Navigation /><SidebarInset><div className="sticky top-0 z-20 flex h-12 items-center border-b bg-background/95 px-4 backdrop-blur"><SidebarTrigger /></div><Routes>
     <Route path="/" element={<HomePage />} />
     <Route path="/dolls" element={<DollsPage />} />
     <Route path="/dolls/:id" element={<DollDetailPage />} />
-    <Route path="/orders" element={<PlaceholderPage title="Заказы" description="Себестоимость, контакты и статусы" />} />
-    <Route path="/settings" element={<PlaceholderPage title="Настройки" description="Курсы, доставка и резервные копии" />} />
+    <Route path="/orders" element={<OrdersPage />} />
+    <Route path="/orders/:id" element={<OrderDetailPage />} />
+    <Route path="/settings" element={<SettingsPage />} />
   </Routes></SidebarInset></SidebarProvider>;
 }
 

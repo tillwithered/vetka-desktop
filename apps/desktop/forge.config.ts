@@ -13,7 +13,12 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({
+      name: 'vetka_desktop',
+      authors: 'Vetka Dolls',
+      description: 'Локальная рабочая система Vetka Dolls',
+      setupExe: 'VetkaDesktopSetup.exe',
+    }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
@@ -33,6 +38,11 @@ const config: ForgeConfig = {
           entry: 'src/preload.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',
+        },
+        {
+          entry: 'src/collector/worker.ts',
+          config: 'vite.worker.config.ts',
+          target: 'main',
         },
       ],
       renderer: [

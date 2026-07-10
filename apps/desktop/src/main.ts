@@ -1,16 +1,18 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import started from 'electron-squirrel-startup';
 
 import { openDatabase } from './main/db/database';
 import { runMigrations } from './main/db/migrate';
+import { rotateBackups } from './main/db/backup';
 import { DollRepository } from './main/dolls/repository';
 import { registerIpcHandlers } from './main/ipc/register-ipc';
 import { SettingsRepository } from './main/settings/repository';
 import { CollectorClient } from './main/collector/client';
 import { PriceRepository } from './main/prices/repository';
 import { PriceService } from './main/prices/service';
+import { OrderRepository } from './main/orders/repository';
 import { secureWebPreferences } from './main/window-options';
 import { channels } from './shared/channels';
 
@@ -57,13 +59,16 @@ export const createWindow = () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
   database = openDatabase(path.join(app.getPath('userData'), 'vetka.sqlite'));
   runMigrations(database);
+  await rotateBackups(database, path.join(app.getPath('userData'), 'backups'));
   const dolls = new DollRepository(database);
   const settings = new SettingsRepository(database);
   const prices = new PriceRepository(database);
-  collector = new CollectorClient({ workerPath: path.join(__dirname, 'worker.cjs') });
+  const orders = new OrderRepository(database);
+  collector = new CollectorClient({ workerPath: path.join(__dirname, 'worker.js') });
   collector.onProgress((event) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channels.collectorProgress, event);
@@ -86,6 +91,7 @@ app.whenReady().then(() => {
     settings,
     prices,
     priceService,
+    orders,
     version: () => app.getVersion(),
   });
   createWindow();

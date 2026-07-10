@@ -55,11 +55,11 @@ export function AddDollDialog() {
         <form onSubmit={submit}>
           <Tabs defaultValue="quick">
             <TabsList><TabsTrigger value="quick">Быстро</TabsTrigger><TabsTrigger value="details">Данные</TabsTrigger></TabsList>
-            <TabsContent value="quick" className="pt-4"><FieldGroup>
+            <TabsContent value="quick" forceMount className="pt-4 data-[state=inactive]:hidden"><FieldGroup>
               <Field data-invalid={Boolean(error)}><FieldLabel htmlFor="doll-name">Название</FieldLabel><Input id="doll-name" name="name" autoFocus placeholder="Draculaura Core Refresh" /></Field>
               <Field data-invalid={Boolean(error)}><FieldLabel htmlFor="amazon-url">Ссылка Amazon</FieldLabel><Input id="amazon-url" name="url" placeholder="https://www.amazon.com/dp/…" /><FieldError>{error}</FieldError></Field>
             </FieldGroup></TabsContent>
-            <TabsContent value="details" className="pt-4"><FieldGroup>
+            <TabsContent value="details" forceMount className="pt-4 data-[state=inactive]:hidden"><FieldGroup>
               <div className="grid grid-cols-2 gap-4"><Field><FieldLabel htmlFor="character">Персонаж</FieldLabel><Input id="character" name="characterName" /></Field><Field><FieldLabel htmlFor="line">Линейка</FieldLabel><Input id="line" name="lineName" /></Field></div>
               <div className="grid grid-cols-3 gap-4"><Field><FieldLabel htmlFor="generation">Поколение</FieldLabel><Input id="generation" name="generation" /></Field><Field><FieldLabel htmlFor="sku">SKU Mattel</FieldLabel><Input id="sku" name="mattelSku" /></Field><Field><FieldLabel htmlFor="upc">UPC/EAN</FieldLabel><Input id="upc" name="upcEan" /></Field></div>
               <Field><FieldLabel htmlFor="notes">Заметки</FieldLabel><Textarea id="notes" name="notes" /></Field>

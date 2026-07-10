@@ -32,6 +32,13 @@ const api: VetkaDesktopApi = {
     current: (dollId) => ipcRenderer.invoke(channels.pricesCurrent, dollId),
     history: (dollId, range = '30d') => ipcRenderer.invoke(channels.pricesHistory, { dollId, range }),
   },
+  orders: {
+    list: (filter = {}) => ipcRenderer.invoke(channels.ordersList, filter),
+    get: (id) => ipcRenderer.invoke(channels.ordersGet, id),
+    create: (input) => ipcRenderer.invoke(channels.ordersCreate, input),
+    transition: (id, status, comment = null) => ipcRenderer.invoke(channels.ordersTransition, { id, status, comment }),
+    updateTracking: (id, trackingNumber) => ipcRenderer.invoke(channels.ordersTracking, { id, trackingNumber }),
+  },
 };
 
 contextBridge.exposeInMainWorld('vetka', api);

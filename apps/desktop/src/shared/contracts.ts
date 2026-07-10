@@ -85,6 +85,22 @@ export type PriceHistoryRecord = {
   checkedAt: string;
 };
 
+export type OrderStatus = 'new' | 'awaiting_payment' | 'ordered' | 'shipped' | 'warehouse' | 'in_transit' | 'received' | 'delivered';
+export type OrderCreateInput = {
+  snapshotId: string; customerContact: string; localShippingMinor: number; localShippingRateToKztMicros: number;
+  weightGrams: number; internationalRateMinorPerKg: number; internationalRateCurrency: string;
+  internationalRateToKztMicros: number; extraCostsKztMinor: number; customerPriceKztMinor: number; notes: string | null;
+};
+export type OrderRecord = {
+  id: string; customerContact: string; dollId: string; dollName: string | null; sourceSnapshotId: string;
+  sourceRegion: string; sourceAsin: string; sourceUrl: string; sourceSeller: string | null; sourcePriceMinor: number;
+  sourceCurrency: string; sourceRateToKztMicros: number; sourcePriceKztMinor: number; localShippingMinor: number;
+  weightGrams: number; internationalRateMinorPerKg: number; internationalShippingKztMinor: number; extraCostsKztMinor: number;
+  totalCostKztMinor: number; customerPriceKztMinor: number; profitKztMinor: number; marginBasisPoints: number | null;
+  status: OrderStatus; trackingNumber: string | null; notes: string | null; createdAt: string; updatedAt: string;
+  events: Array<{ id: string; previousStatus: OrderStatus | null; nextStatus: OrderStatus; comment: string | null; createdAt: string }>;
+};
+
 export type VetkaDesktopApi = {
   health(): Promise<ApiResult<{ version: string }>>;
   dolls: {
@@ -107,6 +123,13 @@ export type VetkaDesktopApi = {
   prices: {
     current(dollId: string): Promise<ApiResult<CurrentPrice[]>>;
     history(dollId: string, range?: '7d' | '30d' | '90d' | 'all'): Promise<ApiResult<PriceHistoryRecord[]>>;
+  };
+  orders: {
+    list(filter?: { query?: string; status?: OrderStatus }): Promise<ApiResult<OrderRecord[]>>;
+    get(id: string): Promise<ApiResult<OrderRecord | null>>;
+    create(input: OrderCreateInput): Promise<ApiResult<OrderRecord>>;
+    transition(id: string, status: OrderStatus, comment?: string | null): Promise<ApiResult<OrderRecord>>;
+    updateTracking(id: string, trackingNumber: string | null): Promise<ApiResult<OrderRecord>>;
   };
 };
 

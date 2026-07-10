@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddDollDialog } from '@/renderer/features/dolls/add-doll-dialog';
-import { DollTable } from '@/renderer/features/dolls/doll-table';
+import { FavoritePriceTable } from './favorite-price-table';
 import { unwrap } from '@/renderer/lib/ipc-query';
 
 export function HomePage() {
@@ -31,7 +31,7 @@ export function HomePage() {
       <Card className="min-h-72">
         <CardHeader><CardTitle>Рабочий список</CardTitle><CardDescription>Актуальность цены всегда видна рядом с регионом.</CardDescription></CardHeader>
         <CardContent className="px-0">
-          {dolls.isLoading ? <div className="space-y-3 px-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div> : dolls.data?.length ? <DollTable dolls={dolls.data} onFavorite={(doll) => favorite.mutate(doll)} /> : <Empty><EmptyHeader><EmptyMedia variant="icon"><HeartIcon /></EmptyMedia><EmptyTitle>Избранное пока пусто</EmptyTitle><EmptyDescription>Добавьте первую куклу или отметьте существующую сердцем.</EmptyDescription></EmptyHeader><AddDollDialog /></Empty>}
+          {dolls.isLoading ? <div className="space-y-3 px-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div> : dolls.data?.length ? <FavoritePriceTable dolls={dolls.data} onFavorite={(doll) => favorite.mutate(doll)} /> : <Empty><EmptyHeader><EmptyMedia variant="icon"><HeartIcon /></EmptyMedia><EmptyTitle>Избранное пока пусто</EmptyTitle><EmptyDescription>Добавьте первую куклу или отметьте существующую сердцем.</EmptyDescription></EmptyHeader><AddDollDialog /></Empty>}
         </CardContent>
       </Card>
     </section>

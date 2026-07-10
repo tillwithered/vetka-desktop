@@ -13,4 +13,9 @@ export const channels = {
   pricesCurrent: 'vetka:prices:current',
   pricesHistory: 'vetka:prices:history',
   collectorProgress: 'vetka:collector:progress',
+  ordersList: 'vetka:orders:list',
+  ordersGet: 'vetka:orders:get',
+  ordersCreate: 'vetka:orders:create',
+  ordersTransition: 'vetka:orders:transition',
+  ordersTracking: 'vetka:orders:tracking',
 } as const;

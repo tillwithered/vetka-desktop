@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     rollupOptions: {
-      external: [/^node:/],
+      external: ['electron', 'playwright-core', /^node:/],
     },
   },
   resolve: {
