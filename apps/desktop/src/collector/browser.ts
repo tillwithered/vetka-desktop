@@ -34,6 +34,11 @@ export function canReuseBrowserContext(context: Pick<BrowserContext, 'isClosed'>
   return !context.isClosed();
 }
 
+export function shouldRetryNavigationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /ERR_ABORTED|frame was detached|Target page, context or browser has been closed/i.test(message);
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest)
@@ -87,7 +92,7 @@ export class BrowserCollectorDriver implements CollectorDriver {
     const profileDirectory = path.join(this.dataDir, 'amazon-profiles', region);
     const context = await loadPlaywright().chromium.launchPersistentContext(profileDirectory, {
       executablePath: this.executablePath,
-      headless: false,
+      headless: true,
       locale: config.locale,
       viewport: { width: 1365, height: 900 },
     });
@@ -96,6 +101,10 @@ export class BrowserCollectorDriver implements CollectorDriver {
   }
 
   private async open(region: AmazonRegion, url: string): Promise<string> {
+    return this.openAttempt(region, url, true);
+  }
+
+  private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean): Promise<string> {
     const context = await this.context(region);
     const page = await context.newPage();
     try {
@@ -110,6 +119,11 @@ export class BrowserCollectorDriver implements CollectorDriver {
       return html;
     } catch (error) {
       await page.close().catch((): undefined => undefined);
+      if (mayRetry && shouldRetryNavigationError(error)) {
+        await context.close().catch((): undefined => undefined);
+        this.contexts.delete(region);
+        return this.openAttempt(region, url, false);
+      }
       throw error;
     }
   }
