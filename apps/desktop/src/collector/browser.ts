@@ -61,6 +61,14 @@ export function shouldStabilizeSearchPage(url: string): boolean {
   }
 }
 
+export function isOfficialStoreUrl(url: string): boolean {
+  try {
+    return /\/stores\/(?:MonsterHigh\/)?page\//i.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest) ? createRequire(packagedManifest) : createRequire(__filename);
@@ -139,6 +147,17 @@ export class BrowserCollectorDriver implements CollectorDriver {
       if (shouldStabilizeSearchPage(url)) {
         await page.waitForSelector('div[data-component-type="s-search-result"][data-asin] h2', { state: 'attached', timeout: 8_000 }).catch((): undefined => undefined);
         await page.waitForTimeout(650);
+      }
+      if (isOfficialStoreUrl(url)) {
+        let unchangedRounds = 0;
+        let previous = 0;
+        for (let round = 0; round < 8 && unchangedRounds < 2; round += 1) {
+          const current = await page.locator('a[href*="/dp/"]').count();
+          unchangedRounds = current > previous ? 0 : unchangedRounds + 1;
+          previous = Math.max(previous, current);
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(450);
+        }
       }
       const html = await page.content();
       if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) await this.showCaptcha(region, url, context);

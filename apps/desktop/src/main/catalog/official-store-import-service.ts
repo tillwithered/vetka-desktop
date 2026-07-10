@@ -1,6 +1,7 @@
 import type { AmazonRegion } from '@/shared/contracts';
 import { BrowserCollectorDriver } from '@/collector/browser';
 import { parseAmazonStoreLinks, parseOfficialStoreDoll } from '@/collector/amazon/store';
+import { isAmazonCollectorBlocked } from '@/collector/amazon/product-page';
 
 import type { CatalogRepository } from './repository';
 import type { PriceService } from '@/main/prices/service';
@@ -18,25 +19,51 @@ type StoreDriver = Pick<BrowserCollectorDriver, 'openStore' | 'openProduct' | 'c
 export class OfficialStoreImportService {
   constructor(private readonly dependencies: {
     catalog: Pick<CatalogRepository, 'getBySku' | 'importSeed'>;
-    prices: unknown;
     priceService: Pick<PriceService, 'persistOfficialStoreOffer'>;
     driver: StoreDriver;
     now?: () => Date;
   }) {}
 
-  async run(regions: readonly AmazonRegion[]): Promise<{ imported: number; updated: number; skipped: number }> {
+  async run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ imported: number; updated: number; skipped: number; errors?: string[] }> {
     let imported = 0; let updated = 0; let skipped = 0;
+    const errors: string[] = [];
     const checkedAt = (this.dependencies.now?.() ?? new Date()).toISOString().slice(0, 10);
     try {
       for (const region of regions) {
-        const links = parseAmazonStoreLinks(await this.dependencies.driver.openStore(region, storeUrls[region]), region);
-        for (const link of links) {
-          const doll = parseOfficialStoreDoll(await this.dependencies.driver.openProduct(region, link.url), region, link.url);
+        onProgress?.({ region, processed: 0, total: 0 });
+        let storeHtml: string;
+        try {
+          storeHtml = await this.dependencies.driver.openStore(region, storeUrls[region]);
+        } catch (error) {
+          errors.push(`${region}: ${error instanceof Error ? error.message : 'Store unavailable'}`);
+          continue;
+        }
+        if (isAmazonCollectorBlocked(storeHtml)) {
+          errors.push(`${region}: Amazon temporarily blocked Store import`);
+          continue;
+        }
+        const links = parseAmazonStoreLinks(storeHtml, region);
+        for (const [index, link] of links.entries()) {
+          onProgress?.({ region, processed: index, total: links.length });
+          let productHtml: string;
+          try {
+            productHtml = await this.dependencies.driver.openProduct(region, link.url);
+          } catch (error) {
+            errors.push(`${region}/${link.asin}: ${error instanceof Error ? error.message : 'Product unavailable'}`);
+            skipped += 1;
+            continue;
+          }
+          if (isAmazonCollectorBlocked(productHtml)) {
+            errors.push(`${region}/${link.asin}: Amazon temporarily blocked product check`);
+            skipped += 1;
+            continue;
+          }
+          const doll = parseOfficialStoreDoll(productHtml, region, link.url);
           if (!doll) { skipped += 1; continue; }
           const existing = this.dependencies.catalog.getBySku(doll.mattelSku);
           this.dependencies.catalog.importSeed([{
             mattelSku: doll.mattelSku, name: doll.name.slice(0, 160), characterName: null, lineName: null,
-            productType: 'official_store', monitorStatus: 'monitor_only', requiredTerms: [doll.mattelSku], rejectTerms: ['accessory', 'replacement', 'outfit'],
+            productType: 'official_store', monitorStatus: 'active', requiredTerms: [doll.mattelSku], rejectTerms: ['accessory', 'replacement', 'outfit'],
             searchQuery: `Monster High ${doll.mattelSku}`, sourceUrl: doll.url, sourceCheckedAt: checkedAt,
             evidence: 'Official Monster High Amazon Store',
           }]);
@@ -46,8 +73,9 @@ export class OfficialStoreImportService {
           if (existing) updated += 1;
           else imported += 1;
         }
+        onProgress?.({ region, processed: links.length, total: links.length });
       }
-      return { imported, updated, skipped };
+      return errors.length > 0 ? { imported, updated, skipped, errors } : { imported, updated, skipped };
     } finally {
       await this.dependencies.driver.close();
     }

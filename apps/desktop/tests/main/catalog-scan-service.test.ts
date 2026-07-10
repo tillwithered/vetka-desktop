@@ -63,6 +63,7 @@ describe('CatalogScanService', () => {
 
     await service.runNow({ includeOfficialStore: true });
 
-    expect(importOfficialStore).toHaveBeenCalledWith(['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it']);
+    expect(importOfficialStore).toHaveBeenCalledWith(['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'], expect.any(Function));
+    expect(service.getState()).toMatchObject({ phase: 'catalog_scan' });
   });
 });

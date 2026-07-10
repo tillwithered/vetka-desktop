@@ -8,6 +8,8 @@ const intervalMs = 120 * 60 * 1000;
 
 export type CatalogScanState = {
   status: 'idle' | 'running';
+  phase?: 'official_store' | 'catalog_scan' | null;
+  region?: AmazonRegion | null;
   startedAt: string | null;
   completedAt: string | null;
   nextRunAt: string | null;
@@ -19,7 +21,7 @@ export type CatalogScanState = {
 type Dependencies = {
   catalog: Pick<CatalogRepository, 'listActive'>;
   priceService: { refreshCatalogEntry(entry: CatalogEntry, regions: AmazonRegion[]): Promise<unknown> };
-  officialStoreImport?: { run(regions: readonly AmazonRegion[]): Promise<unknown> };
+  officialStoreImport?: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
   now?: () => Date;
@@ -70,9 +72,20 @@ export class CatalogScanService {
   }
 
   private async run(includeOfficialStore: boolean): Promise<CatalogScanState> {
-    if (includeOfficialStore) await this.dependencies.officialStoreImport?.run(storeRegions);
+    let importError: string | null = null;
+    if (includeOfficialStore) {
+      this.setState({ status: 'running', phase: 'official_store', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
+      try {
+        const imported = await this.dependencies.officialStoreImport?.run(storeRegions, (event) => {
+          this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
+        });
+        importError = imported?.errors?.join(' · ') ?? null;
+      } catch (error) {
+        importError = error instanceof Error ? error.message.slice(0, 240) : 'Official Store import failed';
+      }
+    }
     const entries = this.dependencies.catalog.listActive();
-    this.setState({ status: 'running', startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length, lastError: null });
+    this.setState({ status: 'running', phase: 'catalog_scan', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length, lastError: importError });
     for (const entry of entries) {
       try {
         await this.dependencies.priceService.refreshCatalogEntry(entry, regions);

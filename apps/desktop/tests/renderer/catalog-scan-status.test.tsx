@@ -16,4 +16,10 @@ describe('CatalogScanStatus', () => {
     expect(refreshNow).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(/1 из 16/i)).toBeVisible();
   });
+
+  it('shows Store import instead of a meaningless zero-counter', async () => {
+    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'official_store', region: 'amazon_uk', startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 0, total: 0 } });
+    render(<CatalogScanStatus />);
+    expect(await screen.findByText('Monster High Store UK')).toBeVisible();
+  });
 });

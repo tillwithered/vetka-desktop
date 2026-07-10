@@ -129,7 +129,6 @@ app.whenReady().then(async () => {
   });
   const officialStoreImport = new OfficialStoreImportService({
     catalog,
-    prices,
     priceService,
     driver: new BrowserCollectorDriver(app.getPath('userData')),
   });

@@ -63,7 +63,7 @@ export type UpdateState =
   | { status: 'error'; message: string };
 
 export type CatalogScanState = {
-  status: 'idle' | 'running'; startedAt: string | null; completedAt: string | null; nextRunAt: string | null; processed: number; total: number; lastError?: string | null;
+  status: 'idle' | 'running'; phase?: 'official_store' | 'catalog_scan' | null; region?: AmazonRegion | null; startedAt: string | null; completedAt: string | null; nextRunAt: string | null; processed: number; total: number; lastError?: string | null;
 };
 
 export type CurrentPrice = {
