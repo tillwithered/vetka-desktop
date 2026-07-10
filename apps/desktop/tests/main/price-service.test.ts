@@ -38,7 +38,7 @@ describe('PriceService', () => {
 
     expect(collector.refreshDoll).toHaveBeenCalledWith(expect.objectContaining({
       doll: expect.objectContaining({ mattelSku: 'JMB92' }),
-      catalogRules: { mattelSku: 'JMB92', upcEan: null, requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+      catalogRules: { mattelSku: 'JMB92', upcEan: null, searchQuery: 'Monster High JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
     }));
   });
 

@@ -10,6 +10,10 @@ export type CollectorDriver = {
   search(region: AmazonRegion, term: string): Promise<string>;
 };
 
+function hasDollSearchContext(title: string): boolean {
+  return /monster\s+high|mattel|fashion\s+doll|\bdoll\b/i.test(title);
+}
+
 export async function collectDoll(
   request: CollectorRequest,
   driver: CollectorDriver,
@@ -47,22 +51,32 @@ export async function collectDoll(
     }
     if (accepted) continue;
 
-    const terms = request.catalogRules ? [request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.mattelSku, request.catalogRules.upcEan] : [request.doll.name, request.doll.mattelSku, request.doll.upcEan]
+    const catalogTerms = request.catalogRules
+      ? (request.catalogRules.searchQuery
+        ? [request.catalogRules.searchQuery, request.catalogRules.mattelSku, request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.upcEan]
+        : [request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.mattelSku, request.catalogRules.upcEan])
+      : null;
+    const terms = (catalogTerms
+      ? catalogTerms
+      : [request.doll.name, request.doll.mattelSku, request.doll.upcEan])
       .filter((term): term is string => Boolean(term?.trim()))
-      .slice(0, 4);
+      .filter((term, index, all) => all.indexOf(term) === index)
+      .slice(0, 5);
     const candidates = [];
     const seen = new Set<string>();
     for (const term of terms) {
       progress('searching', region);
       const found = parseAmazonSearchResults(await driver.search(region, term), region);
       for (const candidate of found) {
-        if (request.catalogRules && !request.catalogRules.requiredTerms.some((term) => candidate.title.toLowerCase().includes(term.toLowerCase()))) continue;
-        if (!seen.has(candidate.asin) && candidates.length < 5) {
+        if (request.catalogRules
+          && !request.catalogRules.requiredTerms.some((term) => candidate.title.toLowerCase().includes(term.toLowerCase()))
+          && !hasDollSearchContext(candidate.title)) continue;
+        if (!seen.has(candidate.asin) && candidates.length < 12) {
           candidates.push(candidate);
           seen.add(candidate.asin);
         }
       }
-      if (candidates.length >= 5) break;
+      if (candidates.length >= 12) break;
     }
 
     for (const candidate of candidates) {

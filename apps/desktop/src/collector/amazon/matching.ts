@@ -31,6 +31,7 @@ export type MatchFacts = {
 export type CatalogOfferRules = {
   mattelSku: string;
   upcEan?: string | null;
+  searchQuery?: string | null;
   requiredTerms: readonly string[];
   rejectTerms: readonly string[];
 };

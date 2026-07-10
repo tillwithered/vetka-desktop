@@ -27,6 +27,7 @@ export class PriceService {
     return this.refresh(entry.dollId, regions, {
       mattelSku: entry.mattelSku,
       upcEan: null,
+      searchQuery: entry.searchQuery,
       requiredTerms: entry.requiredTerms,
       rejectTerms: entry.rejectTerms,
     });
@@ -35,7 +36,7 @@ export class PriceService {
   private async refresh(
     dollId: string,
     regions: AmazonRegion[],
-    catalogRules?: { mattelSku: string; upcEan?: string | null; requiredTerms: readonly string[]; rejectTerms: readonly string[] },
+    catalogRules?: { mattelSku: string; upcEan?: string | null; searchQuery?: string | null; requiredTerms: readonly string[]; rejectTerms: readonly string[] },
   ) {
     const doll = this.dependencies.db.prepare('select * from dolls where id = ?').get(dollId) as Record<string, unknown> | undefined;
     if (!doll) throw new Error('Doll not found');

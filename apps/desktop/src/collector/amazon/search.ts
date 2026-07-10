@@ -27,8 +27,12 @@ export function parseAmazonSearchResults(html: string, region: AmazonRegion): Am
     const node = $(element);
     const asin = String(node.attr('data-asin') ?? '').toUpperCase();
     if (!/^[A-Z0-9]{10}$/.test(asin)) return;
-    const title = node.find('h2').first().attr('aria-label')?.trim()
-      || node.find('h2 span').last().text().replace(/\s+/g, ' ').trim();
+    const accessibleTitle = node.find('h2').first().attr('aria-label')?.replace(/\s+/g, ' ').trim() ?? '';
+    const visibleTitle = node.find('h2 span').last().text().replace(/\s+/g, ' ').trim();
+    // Amazon can render a short placeholder aria-label (for example, only
+    // "Monster High") before replacing the card with its complete product title.
+    // Keep the more specific fact available for the catalog matcher.
+    const title = [accessibleTitle, visibleTitle].sort((left, right) => right.length - left.length)[0] ?? '';
     const link = node.find(`a[href*="/dp/${asin}"]`).first();
     if (!title || link.length === 0) return;
     const priceText = node.find('.a-price .a-offscreen').first().text().trim();

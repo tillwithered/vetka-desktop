@@ -42,4 +42,17 @@ describe('parseAmazonSearchResults', () => {
       },
     ]);
   });
+
+  it('prefers a specific visible title when Amazon initially exposes a generic accessible label', () => {
+    const html = `
+      <div data-component-type="s-search-result" data-asin="B0FK856NFW">
+        <h2 aria-label="Monster High">
+          <a href="/Monster-High/dp/B0FK856NFW?ref=sr_1"><span>Monster High Draculaura Boo-riginal Creeproduction Doll HGC29</span></a>
+        </h2>
+      </div>`;
+
+    expect(parseAmazonSearchResults(html, 'amazon_us')).toMatchObject([
+      { asin: 'B0FK856NFW', title: 'Monster High Draculaura Boo-riginal Creeproduction Doll HGC29' },
+    ]);
+  });
 });

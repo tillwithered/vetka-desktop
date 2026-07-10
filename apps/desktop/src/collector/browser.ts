@@ -49,6 +49,14 @@ export function shouldRetryNavigationError(error: unknown): boolean {
   return /ERR_ABORTED|frame was detached|Target page, context or browser has been closed/i.test(message);
 }
 
+export function shouldStabilizeSearchPage(url: string): boolean {
+  try {
+    return new URL(url).pathname === '/s';
+  } catch {
+    return false;
+  }
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest) ? createRequire(packagedManifest) : createRequire(__filename);
@@ -119,6 +127,10 @@ export class BrowserCollectorDriver implements CollectorDriver {
     const page: Page = await context.newPage();
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      if (shouldStabilizeSearchPage(url)) {
+        await page.waitForSelector('div[data-component-type="s-search-result"][data-asin] h2', { state: 'attached', timeout: 8_000 }).catch((): undefined => undefined);
+        await page.waitForTimeout(650);
+      }
       const html = await page.content();
       if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) await this.showCaptcha(region, url, context);
       else await page.close();

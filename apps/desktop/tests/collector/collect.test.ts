@@ -46,6 +46,27 @@ describe('collectDoll', () => {
     expect(driver.openProduct).not.toHaveBeenCalled();
   });
 
+  it('opens a generic Monster High search card so the product-page facts can verify the SKU', async () => {
+    const search = '<div data-asin="B0CXYZ1234"><h2 aria-label="Monster High"><span>Monster High</span></h2><a href="/dp/B0CXYZ1234"></a></div>';
+    const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Draculaura Boo-riginal Creeproduction Doll HGC29</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => product), search: vi.fn(async () => search) };
+
+    const result = await collectDoll({ type: 'refresh-doll', requestId: 'request-5', dataDir: 'C:/data', doll: { id: 'doll-1', name: 'Draculaura', mattelSku: 'HGC29' }, knownListings: [], regions: ['amazon_us'], catalogRules: { mattelSku: 'HGC29', requiredTerms: ['Draculaura', 'Creeproduction'], rejectTerms: ['outfit'] } }, driver, vi.fn());
+
+    expect(driver.openProduct).toHaveBeenCalledWith('amazon_us', 'https://www.amazon.com/dp/B0CXYZ1234');
+    expect(result.regions.amazon_us).toMatchObject({ status: 'verified', asin: 'B0CXYZ1234' });
+  });
+
+  it('uses the catalogue search query before broad name matching', async () => {
+    const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Willow Thorne Moonspell Magic Doll JMB92</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const search = '<div data-asin="B0CXYZ1234"><h2><span>Monster High Willow Thorne Moonspell Magic Doll JMB92</span></h2><a href="/dp/B0CXYZ1234"></a></div>';
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => product), search: vi.fn(async () => search) };
+
+    await collectDoll({ type: 'refresh-doll', requestId: 'request-6', dataDir: 'C:/data', doll: { id: 'doll-1', name: 'Willow Thorne', mattelSku: 'JMB92' }, knownListings: [], regions: ['amazon_us'], catalogRules: { mattelSku: 'JMB92', searchQuery: 'Monster High JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] } }, driver, vi.fn());
+
+    expect(driver.search).toHaveBeenCalledWith('amazon_us', 'Monster High JMB92');
+  });
+
   it('does not trust a known listing when it no longer passes catalog identity', async () => {
     const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High unrelated doll</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
     const driver: CollectorDriver = { openProduct: vi.fn(async () => product), search: vi.fn(async () => '') };

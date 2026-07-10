@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { canReuseBrowserContext, findBrowserExecutable, shouldRetryNavigationError } from '@/collector/browser';
+import { canReuseBrowserContext, findBrowserExecutable, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
 
 const temporaryDirectories: string[] = [];
 function temporaryResources() {
@@ -44,4 +44,9 @@ describe('browser contexts', () => {
 describe('shouldRetryNavigationError', () => {
   it('retries a transient detached-frame navigation once', () => expect(shouldRetryNavigationError(new Error('page.goto: net::ERR_ABORTED; maybe frame was detached?'))).toBe(true));
   it('does not retry an unrelated browser error', () => expect(shouldRetryNavigationError(new Error('page.goto: net::ERR_NAME_NOT_RESOLVED'))).toBe(false));
+});
+
+describe('shouldStabilizeSearchPage', () => {
+  it('waits for Amazon search cards to replace their initial placeholders', () => expect(shouldStabilizeSearchPage('https://www.amazon.com/s?k=Monster+High+HGC29')).toBe(true));
+  it('does not delay a product page after DOM content is ready', () => expect(shouldStabilizeSearchPage('https://www.amazon.com/dp/B0CXYZ1234')).toBe(false));
 });
