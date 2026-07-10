@@ -31,6 +31,11 @@ const testApi: VetkaDesktopApi = {
     setFavorite: async () => ({ ok: false, error: { code: 'TEST', message: 'Not mocked' } }),
   },
   settings: { getAll: async () => ({ ok: true, data: {} }), set: async (_key: string, value: unknown) => ({ ok: true, data: value }) },
+  catalog: {
+    getScanState: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 } }),
+    refreshNow: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 } }),
+    onScanStateChanged: () => (): void => undefined,
+  },
   amazon: {
     addListing: async () => ({ ok: true, data: {} }),
     refreshDoll: async () => ({ ok: true, data: { requestId: 'test', regions: {} } }),

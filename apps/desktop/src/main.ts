@@ -18,9 +18,13 @@ import { channels } from './shared/channels';
 import { broadcastUpdateState, buildUpdateFeedUrl, isSquirrelFirstRun } from './main/updates/bootstrap';
 import { ElectronUpdaterAdapter } from './main/updates/electron-adapter';
 import { UpdateService } from './main/updates/service';
+import { CatalogRepository } from './main/catalog/repository';
+import { monsterHighSkuCatalog } from './main/catalog/seed';
+import { CatalogScanService } from './main/catalog/scan-service';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
+let catalogScan: CatalogScanService | undefined;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -68,6 +72,8 @@ app.whenReady().then(async () => {
   runMigrations(database);
   await rotateBackups(database, path.join(app.getPath('userData'), 'backups'));
   const dolls = new DollRepository(database);
+  const catalog = new CatalogRepository(database, dolls);
+  catalog.importSeed(monsterHighSkuCatalog);
   const settings = new SettingsRepository(database);
   const prices = new PriceRepository(database);
   const orders = new OrderRepository(database);
@@ -104,6 +110,13 @@ app.whenReady().then(async () => {
       return rate;
     },
   });
+  catalogScan = new CatalogScanService({
+    catalog,
+    priceService,
+    onStateChanged: (state) => {
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
+    },
+  });
   registerIpcHandlers(ipcMain, {
     dolls,
     settings,
@@ -112,13 +125,16 @@ app.whenReady().then(async () => {
     orders,
     collector,
     updates,
+    scanService: catalogScan,
     version: () => app.getVersion(),
   });
   const mainWindow = createWindow();
-  mainWindow.once('ready-to-show', () => updates?.start());
+  mainWindow.once('ready-to-show', () => { updates?.start(); catalogScan?.start(); });
 });
 
 app.on('before-quit', () => {
+  catalogScan?.dispose();
+  catalogScan = undefined;
   collector?.dispose();
   collector = undefined;
   database?.close();

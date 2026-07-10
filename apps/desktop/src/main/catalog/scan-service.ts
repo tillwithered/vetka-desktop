@@ -1,0 +1,91 @@
+import type { AmazonRegion } from '@/shared/contracts';
+
+import type { CatalogEntry, CatalogRepository } from './repository';
+
+const regions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es'];
+const intervalMs = 120 * 60 * 1000;
+
+export type CatalogScanState = {
+  status: 'idle' | 'running';
+  startedAt: string | null;
+  completedAt: string | null;
+  nextRunAt: string | null;
+  processed: number;
+  total: number;
+};
+
+type Dependencies = {
+  catalog: Pick<CatalogRepository, 'listActive'>;
+  priceService: { refreshCatalogEntry(entry: CatalogEntry, regions: AmazonRegion[]): Promise<unknown> };
+  schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+  clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
+  now?: () => Date;
+  onStateChanged?: (state: CatalogScanState) => void;
+};
+
+export class CatalogScanService {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private running: Promise<CatalogScanState> | null = null;
+  private disposed = false;
+  private state: CatalogScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 };
+  private readonly schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+  private readonly clearSchedule: (timer: ReturnType<typeof setTimeout>) => void;
+  private readonly now: () => Date;
+
+  constructor(private readonly dependencies: Dependencies) {
+    this.schedule = dependencies.schedule ?? ((callback, delay) => setTimeout(callback, delay));
+    this.clearSchedule = dependencies.clearSchedule ?? ((timer) => clearTimeout(timer));
+    this.now = dependencies.now ?? (() => new Date());
+  }
+
+  start(): void {
+    void this.runNow();
+  }
+
+  getState(): CatalogScanState {
+    return { ...this.state };
+  }
+
+  async runNow(): Promise<CatalogScanState> {
+    if (this.running) return this.getState();
+    if (this.timer) {
+      this.clearSchedule(this.timer);
+      this.timer = null;
+    }
+    this.running = this.run();
+    try {
+      return await this.running;
+    } finally {
+      this.running = null;
+    }
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    if (this.timer) this.clearSchedule(this.timer);
+    this.timer = null;
+  }
+
+  private async run(): Promise<CatalogScanState> {
+    const entries = this.dependencies.catalog.listActive();
+    this.setState({ status: 'running', startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length });
+    for (const entry of entries) {
+      try {
+        await this.dependencies.priceService.refreshCatalogEntry(entry, regions);
+      } catch {
+        // Each entry already records recoverable collector outcomes; one failure never stops the catalog.
+      }
+      this.setState({ ...this.state, processed: this.state.processed + 1 });
+    }
+    const completedAt = this.now().toISOString();
+    const nextRunAt = new Date(this.now().getTime() + intervalMs).toISOString();
+    this.setState({ ...this.state, status: 'idle', completedAt, nextRunAt });
+    if (!this.disposed) this.timer = this.schedule(() => { void this.runNow(); }, intervalMs);
+    return this.getState();
+  }
+
+  private setState(state: CatalogScanState): void {
+    this.state = state;
+    this.dependencies.onStateChanged?.(this.getState());
+  }
+}

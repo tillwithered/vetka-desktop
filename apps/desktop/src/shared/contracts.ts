@@ -62,6 +62,10 @@ export type UpdateState =
   | { status: 'downloaded'; version: string | null }
   | { status: 'error'; message: string };
 
+export type CatalogScanState = {
+  status: 'idle' | 'running'; startedAt: string | null; completedAt: string | null; nextRunAt: string | null; processed: number; total: number;
+};
+
 export type CurrentPrice = {
   listingId: string;
   region: AmazonRegion;
@@ -126,6 +130,11 @@ export type VetkaDesktopApi = {
   settings: {
     getAll(): Promise<ApiResult<Record<string, unknown>>>;
     set(key: string, value: unknown): Promise<ApiResult<unknown>>;
+  };
+  catalog: {
+    getScanState(): Promise<ApiResult<CatalogScanState>>;
+    refreshNow(): Promise<ApiResult<CatalogScanState>>;
+    onScanStateChanged(listener: (state: CatalogScanState) => void): () => void;
   };
   amazon: {
     addListing(dollId: string, url: string): Promise<ApiResult<unknown>>;

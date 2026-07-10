@@ -6,6 +6,7 @@ import { DollRepository } from '@/main/dolls/repository';
 import { registerIpcHandlers, type IpcRegistrar } from '@/main/ipc/register-ipc';
 import { SettingsRepository } from '@/main/settings/repository';
 import { channels } from '@/shared/channels';
+import type { CatalogScanState } from '@/main/catalog/scan-service';
 
 let db: DatabaseSync;
 
@@ -58,5 +59,18 @@ describe('validated IPC', () => {
       ok: true,
       data: { name: 'Abbey Bominable', isFavorite: false },
     });
+  });
+
+  it('returns scan state and delegates a manual catalog refresh', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const state: CatalogScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 };
+    const scanService = { getState: vi.fn(() => state), runNow: vi.fn(async () => state) };
+    registerIpcHandlers({ handle: (channel, handler) => handlers.set(channel, handler) }, {
+      dolls: new DollRepository(db), settings: new SettingsRepository(db), version: () => '1.2.3', scanService,
+    });
+
+    await expect(handlers.get(channels.catalogRefreshNow)?.({})).resolves.toEqual({ ok: true, data: state });
+    expect(scanService.runNow).toHaveBeenCalledTimes(1);
+    expect(handlers.get(channels.catalogGetScanState)?.({})).toEqual({ ok: true, data: state });
   });
 });

@@ -6,6 +6,7 @@ import type { PriceRepository } from '@/main/prices/repository';
 import type { PriceService } from '@/main/prices/service';
 import type { OrderRepository } from '@/main/orders/repository';
 import type { CollectorClient } from '@/main/collector/client';
+import type { CatalogScanService } from '@/main/catalog/scan-service';
 import { UpdateNotReadyError, type UpdateService } from '@/main/updates/service';
 import { normalizeAmazonUrl } from '@/collector/amazon/url';
 import { channels } from '@/shared/channels';
@@ -31,6 +32,7 @@ type Dependencies = {
   orders?: OrderRepository;
   collector?: CollectorClient;
   updates?: Pick<UpdateService, 'getState' | 'check' | 'restartAndInstall'>;
+  scanService?: Pick<CatalogScanService, 'getState' | 'runNow'>;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -110,6 +112,18 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
     channels.dollsList,
     validated(dollListFilterSchema.default({}), (filter) => dependencies.dolls.list(filter)),
   );
+  registrar.handle(channels.catalogGetScanState, () => {
+    if (!dependencies.scanService) return failure(new Error('Catalog scanner is unavailable'));
+    return success(dependencies.scanService.getState());
+  });
+  registrar.handle(channels.catalogRefreshNow, async () => {
+    try {
+      if (!dependencies.scanService) throw new Error('Catalog scanner is unavailable');
+      return success(await dependencies.scanService.runNow());
+    } catch (error) {
+      return failure(error);
+    }
+  });
   registrar.handle(channels.dollsGet, validated(idSchema, (id) => dependencies.dolls.get(id)));
   registrar.handle(
     channels.dollsCreate,
