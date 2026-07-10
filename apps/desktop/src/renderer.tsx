@@ -5,8 +5,6 @@ import { App } from '@/renderer/app';
 
 import './index.css';
 
-document.documentElement.classList.add('dark');
-
 const root = document.getElementById('root');
 
 if (!root) {

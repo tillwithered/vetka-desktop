@@ -12,7 +12,8 @@ for (const viewport of desktopViewports) {
     await page.goto('http://127.0.0.1:5173/#/');
 
     await expect(page.getByRole('navigation')).toBeVisible();
-    await expect(page.locator('html')).toEvaluate((html) => html.scrollWidth <= html.clientWidth);
+    const hasPageOverflow = await page.locator('html').evaluate((html) => html.scrollWidth > html.clientWidth);
+    expect(hasPageOverflow).toBe(false);
     await expect(page).toHaveScreenshot(`vetka-${viewport.name}-expanded.png`, { fullPage: true });
   });
 }
