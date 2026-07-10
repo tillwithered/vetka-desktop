@@ -1,9 +1,16 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
 import started from 'electron-squirrel-startup';
 
+import { openDatabase } from './main/db/database';
+import { runMigrations } from './main/db/migrate';
+import { DollRepository } from './main/dolls/repository';
+import { registerIpcHandlers } from './main/ipc/register-ipc';
+import { SettingsRepository } from './main/settings/repository';
 import { secureWebPreferences } from './main/window-options';
-import { channels } from './shared/channels';
+
+let database: DatabaseSync | undefined;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -42,8 +49,19 @@ export const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  ipcMain.handle(channels.health, () => ({ ok: true, version: app.getVersion() }));
+  database = openDatabase(path.join(app.getPath('userData'), 'vetka.sqlite'));
+  runMigrations(database);
+  registerIpcHandlers(ipcMain, {
+    dolls: new DollRepository(database),
+    settings: new SettingsRepository(database),
+    version: () => app.getVersion(),
+  });
   createWindow();
+});
+
+app.on('before-quit', () => {
+  database?.close();
+  database = undefined;
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
