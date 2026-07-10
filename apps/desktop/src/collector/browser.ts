@@ -30,6 +30,10 @@ export function findBrowserExecutable(environment: NodeJS.ProcessEnv = process.e
   return null;
 }
 
+export function canReuseBrowserContext(context: Pick<BrowserContext, 'isClosed'>): boolean {
+  return !context.isClosed();
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest)
@@ -76,7 +80,8 @@ export class BrowserCollectorDriver implements CollectorDriver {
 
   private async context(region: AmazonRegion): Promise<BrowserContext> {
     const existing = this.contexts.get(region);
-    if (existing) return existing;
+    if (existing && canReuseBrowserContext(existing)) return existing;
+    if (existing) this.contexts.delete(region);
     if (!this.executablePath) throw new BrowserNotFoundError();
     const config = amazonRegions[region];
     const profileDirectory = path.join(this.dataDir, 'amazon-profiles', region);
