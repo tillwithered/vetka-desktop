@@ -16,4 +16,14 @@ describe('DollTable', () => {
     expect(screen.getByText(/34,99.*ES/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Убрать из избранного' })).toBeInTheDocument();
   });
+
+  it('keeps long imported names inside the doll column with an ellipsis and full-name tooltip', () => {
+    const longName = 'Monster High Frankie Stein Muñeca con Jersey Corto y Falda Negra de Piel sintética, con su Perrito Watzie y 7 Accesorios';
+    render(<MemoryRouter><DollTable dolls={[{ ...doll, name: longName }]} onFavorite={vi.fn()} /></MemoryRouter>);
+
+    const link = screen.getByRole('link', { name: longName });
+    expect(link).toHaveAttribute('title', longName);
+    expect(link).toHaveClass('truncate');
+    expect(link.closest('table')).toHaveClass('table-fixed');
+  });
 });
