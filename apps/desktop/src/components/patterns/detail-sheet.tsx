@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, type SheetContent as SheetContentType } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 type DetailSheetProps = React.ComponentProps<typeof Sheet> & { title: string; description?: string; children: ReactNode; footer?: ReactNode; contentClassName?: string };
 
