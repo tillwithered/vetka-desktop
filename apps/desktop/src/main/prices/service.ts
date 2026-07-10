@@ -89,8 +89,16 @@ export class PriceService {
         }
         continue;
       }
-      const listing = this.dependencies.prices.getByIdentity(dollId, resultRegion, regionResult.asin)
-        ?? this.dependencies.prices.ensureListing({ dollId, region: resultRegion, asin: regionResult.asin, url: regionResult.url });
+      const existingListing = this.dependencies.prices.getByIdentity(dollId, resultRegion, regionResult.asin);
+      const listing = existingListing
+        ? (catalogRules && existingListing.status !== 'confirmed' ? this.dependencies.prices.confirmDeterministicMatch(existingListing.id) : existingListing)
+        : this.dependencies.prices.ensureListing({
+          dollId,
+          region: resultRegion,
+          asin: regionResult.asin,
+          url: regionResult.url,
+          ...(catalogRules ? { status: 'confirmed' as const, confirmationSource: 'deterministic_match' as const } : {}),
+        });
       const selected = regionResult.regularPrice ?? regionResult.primePrice ?? regionResult.subscriptionPrice;
       const offerKind = regionResult.regularPrice ? 'regular' : regionResult.primePrice ? 'prime' : 'subscription';
       this.dependencies.prices.applyCheck({

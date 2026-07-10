@@ -70,4 +70,13 @@ describe('PriceRepository', () => {
       [secondDollId]: [],
     });
   });
+
+  it('promotes legacy verified candidates so existing prices become visible', () => {
+    prices.applyCheck({ listingId, status: 'verified', checkedAt: '2026-07-10T10:00:00Z', offer: { offerKind: 'regular', priceMinor: 2499, currency: 'USD', shippingMinor: 0, sellerName: 'Amazon.com', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New', couponText: null, rateToKztMicros: 514_200_000 } });
+    db.prepare('update amazon_listings set status = ?, confirmation_source = null where id = ?').run('candidate', listingId);
+
+    expect(prices.promoteVerifiedCandidates()).toBe(1);
+    expect(prices.getListing(listingId)).toMatchObject({ status: 'confirmed', confirmationSource: 'deterministic_match' });
+    expect(prices.current(dollId)).toHaveLength(1);
+  });
 });

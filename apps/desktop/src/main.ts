@@ -88,6 +88,7 @@ app.whenReady().then(async () => {
   void nbkRates.refresh().catch((): undefined => undefined);
   setInterval(() => { void nbkRates.refresh().catch((): undefined => undefined); }, 86_400_000);
   const prices = new PriceRepository(database);
+  prices.promoteVerifiedCandidates();
   seedVerifiedAmazonListings({ catalog, prices });
   const orders = new OrderRepository(database);
   const feedUrl = buildUpdateFeedUrl({

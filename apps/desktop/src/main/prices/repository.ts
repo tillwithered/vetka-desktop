@@ -79,6 +79,23 @@ export class PriceRepository {
     return listing;
   }
 
+  confirmDeterministicMatch(listingId: string): AmazonListing {
+    this.db.prepare('update amazon_listings set status = ?, confirmation_source = ?, updated_at = ? where id = ?')
+      .run('confirmed', 'deterministic_match', new Date().toISOString(), listingId);
+    const listing = this.getListing(listingId);
+    if (!listing) throw new Error('Listing not found');
+    return listing;
+  }
+
+  promoteVerifiedCandidates(): number {
+    const result = this.db.prepare(`
+      update amazon_listings
+      set status = 'confirmed', confirmation_source = 'deterministic_match', updated_at = ?
+      where status = 'candidate' and last_check_status = 'verified'
+    `).run(new Date().toISOString());
+    return Number(result.changes);
+  }
+
   applyCheck(input: { listingId: string; status: CheckStatus; checkedAt: string; offer: OfferInput | null; diagnostic?: Record<string, unknown> }): void {
     const listing = this.getListing(input.listingId);
     if (!listing) throw new Error('Listing not found');
