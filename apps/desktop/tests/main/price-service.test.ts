@@ -100,6 +100,27 @@ describe('PriceService', () => {
     expect(db.prepare('select status from price_checks where listing_id = ?').get(listing.id)).toEqual({ status: 'no_price' });
   });
 
+  it('records a blocked check without replacing the last verified offer', async () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const doll = new DollRepository(db).create({ name: 'Robecca Steam' });
+    const prices = new PriceRepository(db);
+    const listing = prices.ensureListing({ dollId: doll.id, region: 'amazon_uk', asin: 'B0FK1V67X5', url: 'https://www.amazon.co.uk/dp/B0FK1V67X5', status: 'confirmed', confirmationSource: 'exact_id' });
+    prices.applyCheck({
+      listingId: listing.id, status: 'verified', checkedAt: '2026-07-10T00:00:00.000Z', diagnostic: {},
+      offer: { offerKind: 'regular', priceMinor: 2499, currency: 'GBP', shippingMinor: null, sellerName: 'Amazon', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New', couponText: null, rateToKztMicros: 650_000_000 },
+    });
+    const collector = { refreshDoll: vi.fn(async () => ({
+      requestId: 'blocked',
+      regions: { amazon_uk: { status: 'blocked', region: 'amazon_uk', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null, couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null, url: null, reviewCandidates: [] } },
+    } as CollectorDollResult)) };
+    const service = new PriceService({ db, prices, collector, dataDir: 'C:/data', getRate: () => 650_000_000 });
+
+    await service.refreshDoll(doll.id, ['amazon_uk']);
+
+    expect(db.prepare('select status from price_checks where listing_id = ? order by finished_at desc limit 1').get(listing.id)).toEqual({ status: 'blocked' });
+    expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({ priceMinor: 2499, currency: 'GBP' }));
+  });
+
   it('saves a confirmed Amazon thumbnail without replacing a manual image', async () => {
     db = new DatabaseSync(':memory:'); runMigrations(db);
     const dolls = new DollRepository(db);
