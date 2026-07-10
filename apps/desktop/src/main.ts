@@ -128,8 +128,9 @@ app.whenReady().then(async () => {
     scanService: catalogScan,
     version: () => app.getVersion(),
   });
-  const mainWindow = createWindow();
-  mainWindow.once('ready-to-show', () => { updates?.start(); catalogScan?.start(); });
+  createWindow();
+  updates?.start();
+  catalogScan?.start();
 });
 
 app.on('before-quit', () => {
