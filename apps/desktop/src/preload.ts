@@ -18,6 +18,20 @@ const api: VetkaDesktopApi = {
     getAll: () => ipcRenderer.invoke(channels.settingsGetAll),
     set: (key, value) => ipcRenderer.invoke(channels.settingsSet, { key, value }),
   },
+  amazon: {
+    addListing: (dollId, url) => ipcRenderer.invoke(channels.amazonAddListing, { dollId, url }),
+    refreshDoll: (dollId, regions) => ipcRenderer.invoke(channels.amazonRefreshDoll, { dollId, regions }),
+    reviewCandidate: (listingId, decision) => ipcRenderer.invoke(channels.amazonReviewCandidate, { listingId, decision }),
+    onProgress: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof listener>[0]) => listener(data);
+      ipcRenderer.on(channels.collectorProgress, handler);
+      return () => ipcRenderer.removeListener(channels.collectorProgress, handler);
+    },
+  },
+  prices: {
+    current: (dollId) => ipcRenderer.invoke(channels.pricesCurrent, dollId),
+    history: (dollId, range = '30d') => ipcRenderer.invoke(channels.pricesHistory, { dollId, range }),
+  },
 };
 
 contextBridge.exposeInMainWorld('vetka', api);

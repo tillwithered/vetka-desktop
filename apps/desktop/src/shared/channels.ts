@@ -7,4 +7,10 @@ export const channels = {
   dollsFavorite: 'vetka:dolls:favorite',
   settingsGetAll: 'vetka:settings:get-all',
   settingsSet: 'vetka:settings:set',
+  amazonAddListing: 'vetka:amazon:add-listing',
+  amazonRefreshDoll: 'vetka:amazon:refresh-doll',
+  amazonReviewCandidate: 'vetka:amazon:review-candidate',
+  pricesCurrent: 'vetka:prices:current',
+  pricesHistory: 'vetka:prices:history',
+  collectorProgress: 'vetka:collector:progress',
 } as const;
