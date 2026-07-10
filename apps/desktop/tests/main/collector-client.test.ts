@@ -35,4 +35,19 @@ describe('CollectorClient', () => {
     expect(fork).toHaveBeenCalledTimes(2);
     client.dispose();
   });
+
+  it('sends an official Store import through the collector worker', async () => {
+    const worker = new FakeProcess();
+    const client = new CollectorClient({ fork: () => worker, workerPath: 'worker.cjs' });
+    const progress = vi.fn();
+    const pending = client.importOfficialStore({ dataDir: 'C:/data', regions: ['amazon_uk'] }, progress);
+    const sent = worker.postMessage.mock.calls[0][0];
+    worker.emit('message', { type: 'progress', requestId: sent.requestId, stage: 'checking', region: 'amazon_uk', processed: 3, total: 10 });
+    worker.emit('message', { type: 'official-store-result', requestId: sent.requestId, result: { requestId: sent.requestId, products: [], regions: { amazon_uk: { status: 'completed', total: 0 } } } });
+
+    await expect(pending).resolves.toMatchObject({ requestId: sent.requestId });
+    expect(sent).toMatchObject({ type: 'import-official-store', regions: ['amazon_uk'] });
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ stage: 'checking', processed: 3, total: 10 }));
+    client.dispose();
+  });
 });

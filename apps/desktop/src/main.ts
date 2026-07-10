@@ -23,7 +23,6 @@ import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
 import { OfficialStoreImportService } from './main/catalog/official-store-import-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
-import { BrowserCollectorDriver } from './collector/browser';
 import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
 import { acquireSingleInstanceLock } from './main/single-instance';
@@ -130,7 +129,8 @@ app.whenReady().then(async () => {
   const officialStoreImport = new OfficialStoreImportService({
     catalog,
     priceService,
-    driver: new BrowserCollectorDriver(app.getPath('userData')),
+    collector,
+    dataDir: app.getPath('userData'),
   });
   catalogScan = new CatalogScanService({
     catalog,

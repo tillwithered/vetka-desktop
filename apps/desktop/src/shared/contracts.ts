@@ -141,7 +141,7 @@ export type VetkaDesktopApi = {
     refreshDoll(dollId: string, regions: AmazonRegion[]): Promise<ApiResult<CollectorDollResult>>;
     reviewCandidate(listingId: string, decision: 'confirm' | 'reject'): Promise<ApiResult<unknown>>;
     resumeRegion(requestId: string, region: AmazonRegion): Promise<ApiResult<null>>;
-    onProgress(listener: (event: { requestId: string; stage: CollectorStage; region?: AmazonRegion }) => void): () => void;
+    onProgress(listener: (event: { requestId: string; stage: CollectorStage; region?: AmazonRegion; processed?: number; total?: number }) => void): () => void;
   };
   prices: {
     current(dollId: string): Promise<ApiResult<CurrentPrice[]>>;
