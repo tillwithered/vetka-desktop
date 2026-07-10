@@ -55,6 +55,13 @@ export type Doll = DollInput & {
 export type ApiError = { code: string; message: string };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
+export type UpdateState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'available'; version: string | null }
+  | { status: 'downloaded'; version: string | null }
+  | { status: 'error'; message: string };
+
 export type CurrentPrice = {
   listingId: string;
   region: AmazonRegion;
@@ -103,6 +110,12 @@ export type OrderRecord = {
 
 export type VetkaDesktopApi = {
   health(): Promise<ApiResult<{ version: string }>>;
+  updates: {
+    getState(): Promise<ApiResult<UpdateState>>;
+    check(): Promise<ApiResult<UpdateState>>;
+    restartAndInstall(): Promise<ApiResult<null>>;
+    onStateChanged(listener: (state: UpdateState) => void): () => void;
+  };
   dolls: {
     list(filter?: DollListFilter): Promise<ApiResult<Doll[]>>;
     get(id: string): Promise<ApiResult<Doll | null>>;

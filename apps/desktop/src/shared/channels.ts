@@ -1,5 +1,9 @@
 export const channels = {
   health: 'vetka:health',
+  updatesGetState: 'vetka:updates:get-state',
+  updatesCheck: 'vetka:updates:check',
+  updatesRestartAndInstall: 'vetka:updates:restart-and-install',
+  updatesStateChanged: 'vetka:updates:state-changed',
   dollsList: 'vetka:dolls:list',
   dollsGet: 'vetka:dolls:get',
   dollsCreate: 'vetka:dolls:create',

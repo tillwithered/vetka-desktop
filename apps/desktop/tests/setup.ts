@@ -17,6 +17,12 @@ Object.defineProperty(window, 'matchMedia', {
 
 const testApi: VetkaDesktopApi = {
   health: async () => ({ ok: true, data: { version: 'test' } }),
+  updates: {
+    getState: async () => ({ ok: true, data: { status: 'idle' } }),
+    check: async () => ({ ok: true, data: { status: 'idle' } }),
+    restartAndInstall: async () => ({ ok: false, error: { code: 'UPDATE_NOT_READY', message: 'Not ready' } }),
+    onStateChanged: () => (): void => undefined,
+  },
   dolls: {
     list: async () => ({ ok: true, data: [] }),
     get: async () => ({ ok: true, data: null }),

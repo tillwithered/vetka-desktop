@@ -6,6 +6,7 @@ import type { PriceRepository } from '@/main/prices/repository';
 import type { PriceService } from '@/main/prices/service';
 import type { OrderRepository } from '@/main/orders/repository';
 import type { CollectorClient } from '@/main/collector/client';
+import { UpdateNotReadyError, type UpdateService } from '@/main/updates/service';
 import { normalizeAmazonUrl } from '@/collector/amazon/url';
 import { channels } from '@/shared/channels';
 import {
@@ -29,6 +30,7 @@ type Dependencies = {
   priceService?: PriceService;
   orders?: OrderRepository;
   collector?: CollectorClient;
+  updates?: Pick<UpdateService, 'getState' | 'check' | 'restartAndInstall'>;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -76,6 +78,34 @@ function validated<TInput, TOutput>(
 
 export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Dependencies): void {
   registrar.handle(channels.health, () => success({ version: dependencies.version() }));
+  registrar.handle(channels.updatesGetState, () => {
+    try {
+      if (!dependencies.updates) throw new Error('Updates are unavailable');
+      return success(dependencies.updates.getState());
+    } catch {
+      return { ok: false, error: { code: 'UPDATE_ERROR', message: 'Не удалось проверить обновления' } };
+    }
+  });
+  registrar.handle(channels.updatesCheck, async () => {
+    try {
+      if (!dependencies.updates) throw new Error('Updates are unavailable');
+      return success(await dependencies.updates.check());
+    } catch {
+      return { ok: false, error: { code: 'UPDATE_ERROR', message: 'Не удалось проверить обновления' } };
+    }
+  });
+  registrar.handle(channels.updatesRestartAndInstall, () => {
+    try {
+      if (!dependencies.updates) throw new Error('Updates are unavailable');
+      dependencies.updates.restartAndInstall();
+      return success(null);
+    } catch (error) {
+      if (error instanceof UpdateNotReadyError) {
+        return { ok: false, error: { code: 'UPDATE_NOT_READY', message: 'Обновление ещё не готово к установке' } };
+      }
+      return { ok: false, error: { code: 'UPDATE_ERROR', message: 'Не удалось установить обновление' } };
+    }
+  });
   registrar.handle(
     channels.dollsList,
     validated(dollListFilterSchema.default({}), (filter) => dependencies.dolls.list(filter)),

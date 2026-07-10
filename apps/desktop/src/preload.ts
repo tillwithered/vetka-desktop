@@ -7,6 +7,16 @@ import type { VetkaDesktopApi } from './shared/contracts';
 
 const api: VetkaDesktopApi = {
   health: () => ipcRenderer.invoke(channels.health),
+  updates: {
+    getState: () => ipcRenderer.invoke(channels.updatesGetState),
+    check: () => ipcRenderer.invoke(channels.updatesCheck),
+    restartAndInstall: () => ipcRenderer.invoke(channels.updatesRestartAndInstall),
+    onStateChanged: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state);
+      ipcRenderer.on(channels.updatesStateChanged, handler);
+      return () => ipcRenderer.removeListener(channels.updatesStateChanged, handler);
+    },
+  },
   dolls: {
     list: (filter = {}) => ipcRenderer.invoke(channels.dollsList, filter),
     get: (id) => ipcRenderer.invoke(channels.dollsGet, id),
