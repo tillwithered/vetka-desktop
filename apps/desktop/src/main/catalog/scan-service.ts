@@ -3,6 +3,7 @@ import type { AmazonRegion } from '@/shared/contracts';
 import type { CatalogEntry, CatalogRepository } from './repository';
 
 const regions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es'];
+const storeRegions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'];
 const intervalMs = 120 * 60 * 1000;
 
 export type CatalogScanState = {
@@ -18,6 +19,7 @@ export type CatalogScanState = {
 type Dependencies = {
   catalog: Pick<CatalogRepository, 'listActive'>;
   priceService: { refreshCatalogEntry(entry: CatalogEntry, regions: AmazonRegion[]): Promise<unknown> };
+  officialStoreImport?: { run(regions: readonly AmazonRegion[]): Promise<unknown> };
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
   now?: () => Date;
@@ -47,13 +49,13 @@ export class CatalogScanService {
     return { ...this.state };
   }
 
-  async runNow(): Promise<CatalogScanState> {
+  async runNow(options: { includeOfficialStore?: boolean } = {}): Promise<CatalogScanState> {
     if (this.running) return this.getState();
     if (this.timer) {
       this.clearSchedule(this.timer);
       this.timer = null;
     }
-    this.running = this.run();
+    this.running = this.run(options.includeOfficialStore === true);
     try {
       return await this.running;
     } finally {
@@ -67,7 +69,8 @@ export class CatalogScanService {
     this.timer = null;
   }
 
-  private async run(): Promise<CatalogScanState> {
+  private async run(includeOfficialStore: boolean): Promise<CatalogScanState> {
+    if (includeOfficialStore) await this.dependencies.officialStoreImport?.run(storeRegions);
     const entries = this.dependencies.catalog.listActive();
     this.setState({ status: 'running', startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length, lastError: null });
     for (const entry of entries) {

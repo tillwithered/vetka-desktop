@@ -126,7 +126,7 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
   registrar.handle(channels.catalogRefreshNow, async () => {
     try {
       if (!dependencies.scanService) throw new Error('Catalog scanner is unavailable');
-      return success(await dependencies.scanService.runNow());
+      return success(await dependencies.scanService.runNow({ includeOfficialStore: true }));
     } catch (error) {
       return failure(error);
     }

@@ -53,4 +53,16 @@ describe('CatalogScanService', () => {
 
     expect(service.getState()).toMatchObject({ status: 'idle', lastError: 'Collector worker exited' });
   });
+
+  it('imports official Store products only for a manual refresh', async () => {
+    const importOfficialStore = vi.fn(async () => undefined);
+    const service = new CatalogScanService({
+      catalog: { listActive: () => [] }, priceService: { refreshCatalogEntry: vi.fn() }, officialStoreImport: { run: importOfficialStore },
+      schedule: vi.fn(), clearSchedule: vi.fn(), now: () => new Date('2026-07-10T10:00:00.000Z'),
+    });
+
+    await service.runNow({ includeOfficialStore: true });
+
+    expect(importOfficialStore).toHaveBeenCalledWith(['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it']);
+  });
 });

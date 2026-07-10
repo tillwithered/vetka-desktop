@@ -21,7 +21,9 @@ import { UpdateService } from './main/updates/service';
 import { CatalogRepository } from './main/catalog/repository';
 import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
+import { OfficialStoreImportService } from './main/catalog/official-store-import-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
+import { BrowserCollectorDriver } from './collector/browser';
 import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
 import { acquireSingleInstanceLock } from './main/single-instance';
@@ -125,9 +127,16 @@ app.whenReady().then(async () => {
       return rate;
     },
   });
+  const officialStoreImport = new OfficialStoreImportService({
+    catalog,
+    prices,
+    priceService,
+    driver: new BrowserCollectorDriver(app.getPath('userData')),
+  });
   catalogScan = new CatalogScanService({
     catalog,
     priceService,
+    officialStoreImport,
     onStateChanged: (state) => {
       settings.set('catalogScanState', state);
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
