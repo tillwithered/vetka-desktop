@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { canReuseBrowserContext, findBrowserExecutable, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
+import { canReuseBrowserContext, findBrowserExecutable, isTransientAmazonResponse, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
 
 const temporaryDirectories: string[] = [];
 function temporaryResources() {
@@ -49,4 +49,13 @@ describe('shouldRetryNavigationError', () => {
 describe('shouldStabilizeSearchPage', () => {
   it('waits for Amazon search cards to replace their initial placeholders', () => expect(shouldStabilizeSearchPage('https://www.amazon.com/s?k=Monster+High+HGC29')).toBe(true));
   it('does not delay a product page after DOM content is ready', () => expect(shouldStabilizeSearchPage('https://www.amazon.com/dp/B0CXYZ1234')).toBe(false));
+});
+
+describe('isTransientAmazonResponse', () => {
+  it('recognizes Amazon temporary responses that must not become no-price results', () => {
+    expect(isTransientAmazonResponse(202)).toBe(true);
+    expect(isTransientAmazonResponse(429)).toBe(true);
+    expect(isTransientAmazonResponse(503)).toBe(true);
+    expect(isTransientAmazonResponse(200)).toBe(false);
+  });
 });

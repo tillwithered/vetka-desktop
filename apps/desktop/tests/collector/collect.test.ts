@@ -40,6 +40,21 @@ describe('collectDoll', () => {
     expect(result.regions.amazon_uk).toMatchObject({ status: 'verified', asin: 'B0FK1V67X5', regularPrice: { minor: 2499, currency: 'GBP' } });
   });
 
+  it('returns blocked when a direct regional ASIN probe receives a transient Amazon response', async () => {
+    const driver: CollectorDriver = { openProduct: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'), search: vi.fn(async () => '') };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'request-blocked', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam', mattelSku: 'JHK59' },
+      knownListings: [{ region: 'amazon_es', asin: 'B0FK1V67X5', url: 'https://www.amazon.es/dp/B0FK1V67X5', confirmed: true }],
+      regions: ['amazon_uk'],
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'blocked', asin: null });
+    expect(driver.search).not.toHaveBeenCalled();
+  });
+
   it('opens a search result and persists only a strict catalog match', async () => {
     const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Willow Thorne Moonspell Magic Doll JMB92</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
     const search = '<div data-asin="B0CXYZ1234"><h2><span>Monster High Willow Thorne Moonspell Magic Doll</span></h2><a href="/dp/B0CXYZ1234"></a></div>';

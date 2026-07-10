@@ -9,6 +9,7 @@ export type AmazonPageStatus =
   | 'verified'
   | 'out_of_stock'
   | 'no_price'
+  | 'blocked'
   | 'captcha_required'
   | 'parser_changed'
   | 'identity_mismatch'
@@ -43,6 +44,10 @@ const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
   condition: null,
   imageUrl: null,
 });
+
+export function isAmazonCollectorBlocked(html: string): boolean {
+  return /data-vetka-collector-status\s*=\s*["']blocked["']/i.test(html);
+}
 
 function firstText($: ReturnType<typeof load>, selectors: string[]): string | null {
   for (const selector of selectors) {
@@ -81,6 +86,7 @@ export function parseAmazonProductPage(
   html: string,
   context: { region: AmazonRegion; expectedAsin: string },
 ): AmazonPageResult {
+  if (isAmazonCollectorBlocked(html)) return emptyResult('blocked');
   if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) {
     return emptyResult('captcha_required');
   }

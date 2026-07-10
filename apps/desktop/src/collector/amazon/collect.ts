@@ -2,7 +2,7 @@ import type { AmazonRegion } from '@/shared/contracts';
 
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
 import { matchAmazonProduct, matchCatalogOffer } from './matching';
-import { parseAmazonProductPage } from './product-page';
+import { isAmazonCollectorBlocked, parseAmazonProductPage } from './product-page';
 import { amazonRegions } from './regions';
 import { parseAmazonSearchResults } from './search';
 
@@ -48,7 +48,7 @@ export async function collectDoll(
         if (match.status !== 'verified') continue;
       }
       result.regions[region] = { ...page, region, url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
-      if (page.status === 'verified' || page.status === 'captcha_required') {
+      if (page.status === 'verified' || page.status === 'captcha_required' || page.status === 'blocked') {
         if (page.status === 'captcha_required') progress('captcha_required', region);
         accepted = true;
         break;
@@ -71,7 +71,17 @@ export async function collectDoll(
     const seen = new Set<string>();
     for (const term of terms) {
       progress('searching', region);
-      const found = parseAmazonSearchResults(await driver.search(region, term), region);
+      const searchHtml = await driver.search(region, term);
+      if (isAmazonCollectorBlocked(searchHtml)) {
+        result.regions[region] = {
+          status: 'blocked', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
+          couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null,
+          region, url: null, reviewCandidates: [],
+        };
+        accepted = true;
+        break;
+      }
+      const found = parseAmazonSearchResults(searchHtml, region);
       for (const candidate of found) {
         if (request.catalogRules
           && !request.catalogRules.requiredTerms.some((term) => candidate.title.toLowerCase().includes(term.toLowerCase()))
