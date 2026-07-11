@@ -24,6 +24,7 @@ import { CatalogRepository } from './main/catalog/repository';
 import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
 import { OfficialStoreImportService } from './main/catalog/official-store-import-service';
+import { AsinPriceRefreshService } from './main/catalog/asin-price-refresh-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
 import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
@@ -135,8 +136,10 @@ app.whenReady().then(async () => {
     collector,
     dataDir: app.getPath('userData'),
   });
+  const asinPriceRefresh = new AsinPriceRefreshService({ catalog, prices, priceService });
   catalogScan = new CatalogScanService({
     officialStoreImport,
+    asinPriceRefresh,
     regions: () => regionsForCatalogScan(proxyTransport.getResolved()),
     onStateChanged: (state) => {
       settings.set('catalogScanState', state);

@@ -17,6 +17,7 @@ export type CatalogScanState = {
 
 type Dependencies = {
   officialStoreImport: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
+  asinPriceRefresh?: { run(regions: readonly AmazonRegion[], onProgress?: (event: { processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
   regions?: () => readonly AmazonRegion[];
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
@@ -77,14 +78,24 @@ export class CatalogScanService {
         const result = await this.dependencies.officialStoreImport.run(regions, (event) => {
           this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
         });
+        const errors = [...(result.errors ?? [])];
+        if (this.dependencies.asinPriceRefresh) {
+          this.setState({ ...this.state, phase: 'catalog_scan', region: null, processed: 0, total: 0 });
+          const priceResult = await this.dependencies.asinPriceRefresh.run(regions, (event) => {
+            this.setState({ ...this.state, phase: 'catalog_scan', region: null, processed: event.processed, total: event.total });
+          });
+          errors.push(...(priceResult.errors ?? []));
+        }
+        result.errors = errors;
         lastError = result.errors?.join(' · ') ?? null;
       }
+      if (!lastError) lastError = null;
     } catch {
       lastError = 'Official Store import failed';
     }
     const completedAt = this.now().toISOString();
     const nextRunAt = new Date(this.now().getTime() + intervalMs).toISOString();
-    this.setState({ ...this.state, status: 'idle', phase: 'official_store', completedAt, nextRunAt, lastError });
+    this.setState({ ...this.state, status: 'idle', phase: this.state.phase, completedAt, nextRunAt, lastError });
     if (!this.disposed) this.timer = this.schedule(() => { void this.runNow(); }, intervalMs);
     return this.getState();
   }

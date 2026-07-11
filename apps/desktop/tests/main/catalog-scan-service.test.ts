@@ -45,6 +45,24 @@ describe('CatalogScanService', () => {
     expect(officialStoreImport.run).toHaveBeenCalledWith(['amazon_uk'], expect.any(Function));
   });
 
+  it('refreshes active confirmed ASINs after Store discovery', async () => {
+    const officialStoreImport = { run: vi.fn(async () => ({ errors: [] })) };
+    const asinPriceRefresh = { run: vi.fn(async (_regions: readonly string[], progress?: (event: { processed: number; total: number }) => void) => {
+      progress?.({ processed: 1, total: 1 });
+      return { processed: 1, total: 1, errors: [] };
+    }) };
+    const service = new CatalogScanService({
+      officialStoreImport, asinPriceRefresh, regions: () => ['amazon_uk'],
+      schedule: vi.fn(), clearSchedule: vi.fn(), now: () => new Date('2026-07-10T10:00:00.000Z'),
+    });
+
+    await service.runNow();
+
+    expect(officialStoreImport.run.mock.invocationCallOrder[0]).toBeLessThan(asinPriceRefresh.run.mock.invocationCallOrder[0]);
+    expect(asinPriceRefresh.run).toHaveBeenCalledWith(['amazon_uk'], expect.any(Function));
+    expect(service.getState()).toMatchObject({ status: 'idle', phase: 'catalog_scan', processed: 1, total: 1, lastError: null });
+  });
+
   it('does not start a Store import with an empty proxy region selection', async () => {
     const officialStoreImport = { run: vi.fn(async () => ({ errors: [] })) };
     const service = new CatalogScanService({
