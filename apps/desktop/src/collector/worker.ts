@@ -1,5 +1,5 @@
 import { collectDoll } from './amazon/collect';
-import { isAmazonCollectorBlocked } from './amazon/product-page';
+import { isAmazonCaptcha, isAmazonCollectorBlocked } from './amazon/product-page';
 import { safeStoreError } from './amazon/store-error';
 import { officialMonsterHighStoreUrls, parseAmazonStoreLinks, parseOfficialStoreDoll } from './amazon/store';
 import { BrowserCollectorDriver } from './browser';
@@ -44,19 +44,31 @@ async function runOfficialStore(request: Extract<CollectorControlMessage, { type
     send({ type: 'progress', requestId: request.requestId, stage: 'searching', region });
     try {
       const storeHtml = await driver.openStore(region, officialMonsterHighStoreUrls[region]);
-      if (isAmazonCollectorBlocked(storeHtml)) {
-        result.regions[region] = { status: 'blocked', total: 0, error: 'Amazon temporarily blocked Store import' };
+      if (isAmazonCollectorBlocked(storeHtml) || isAmazonCaptcha(storeHtml)) {
+        result.regions[region] = {
+          status: 'blocked',
+          total: 0,
+          error: isAmazonCaptcha(storeHtml) ? 'Amazon requested CAPTCHA for Store import' : 'Amazon temporarily blocked Store import',
+        };
         continue;
       }
       const links = parseAmazonStoreLinks(storeHtml, region);
       send({ type: 'progress', requestId: request.requestId, stage: 'searching', region, processed: 0, total: links.length });
       for (const [index, link] of links.entries()) {
         send({ type: 'progress', requestId: request.requestId, stage: 'checking', region, processed: index + 1, total: links.length });
-        const html = await driver.openProduct(region, link.url);
-        if (isAmazonCollectorBlocked(html)) continue;
+        const html = await driver.openStoreProduct(region, link.url);
+        if (isAmazonCollectorBlocked(html) || isAmazonCaptcha(html)) {
+          result.regions[region] = {
+            status: 'blocked',
+            total: links.length,
+            error: isAmazonCaptcha(html) ? 'Amazon requested CAPTCHA for Store import' : 'Amazon temporarily blocked Store import',
+          };
+          break;
+        }
         const doll = parseOfficialStoreDoll(html, region, link.url);
         if (doll) result.products.push(doll);
       }
+      if (result.regions[region]?.status === 'blocked') continue;
       result.regions[region] = { status: 'completed', total: links.length };
       send({ type: 'progress', requestId: request.requestId, stage: 'completed', region, processed: links.length, total: links.length });
     } catch (error) {

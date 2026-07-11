@@ -49,6 +49,10 @@ export function isAmazonCollectorBlocked(html: string): boolean {
   return /data-vetka-collector-status\s*=\s*["']blocked["']/i.test(html);
 }
 
+export function isAmazonCaptcha(html: string): boolean {
+  return /validateCaptcha|enter the characters you see below|robot check/i.test(html);
+}
+
 function firstText($: ReturnType<typeof load>, selectors: string[]): string | null {
   for (const selector of selectors) {
     const value = $(selector).first().text().replace(/\s+/g, ' ').trim();
@@ -87,7 +91,7 @@ export function parseAmazonProductPage(
   context: { region: AmazonRegion; expectedAsin: string },
 ): AmazonPageResult {
   if (isAmazonCollectorBlocked(html)) return emptyResult('blocked');
-  if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) {
+  if (isAmazonCaptcha(html)) {
     return emptyResult('captcha_required');
   }
 

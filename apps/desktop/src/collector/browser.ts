@@ -7,6 +7,8 @@ import type { AmazonRegion } from '@/shared/contracts';
 import type { CollectorDriver } from './amazon/collect';
 import { amazonRegions } from './amazon/regions';
 
+export type BrowserRequestMode = 'product' | 'store';
+
 export class BrowserNotFoundError extends Error {
   readonly code = 'browser_not_found';
   constructor() {
@@ -69,6 +71,10 @@ export function isOfficialStoreUrl(url: string): boolean {
   }
 }
 
+export function shouldOpenCaptchaWindow(mode: BrowserRequestMode): boolean {
+  return mode === 'product';
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest) ? createRequire(packagedManifest) : createRequire(__filename);
@@ -81,11 +87,18 @@ export class BrowserCollectorDriver implements CollectorDriver {
 
   constructor(private readonly dataDir: string, private readonly executablePath = findBrowserExecutable()) {}
 
-  async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url); }
-  async openStore(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url); }
+  async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url, 'product'); }
+  async openStore(region: AmazonRegion, url: string): Promise<string> {
+    await this.closeChallenge(region);
+    return this.open(region, url, 'store');
+  }
+  async openStoreProduct(region: AmazonRegion, url: string): Promise<string> {
+    await this.closeChallenge(region);
+    return this.open(region, url, 'store');
+  }
   async search(region: AmazonRegion, term: string): Promise<string> {
     const config = amazonRegions[region];
-    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`);
+    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product');
   }
 
   async closeChallenge(region: AmazonRegion): Promise<void> {
@@ -131,11 +144,11 @@ export class BrowserCollectorDriver implements CollectorDriver {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch((): undefined => undefined);
   }
 
-  private async open(region: AmazonRegion, url: string): Promise<string> {
-    return this.openAttempt(region, url, true);
+  private async open(region: AmazonRegion, url: string, mode: BrowserRequestMode): Promise<string> {
+    return this.openAttempt(region, url, true, mode);
   }
 
-  private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean): Promise<string> {
+  private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean, mode: BrowserRequestMode): Promise<string> {
     const context = await this.context(region);
     const page: Page = await context.newPage();
     try {
@@ -160,15 +173,18 @@ export class BrowserCollectorDriver implements CollectorDriver {
         }
       }
       const html = await page.content();
-      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html)) await this.showCaptcha(region, url, context);
-      else await page.close();
+      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html) && shouldOpenCaptchaWindow(mode)) {
+        await this.showCaptcha(region, url, context);
+      } else {
+        await page.close();
+      }
       return html;
     } catch (error) {
       await page.close().catch((): undefined => undefined);
       if (mayRetry && shouldRetryNavigationError(error)) {
         await context.close().catch((): undefined => undefined);
         this.contexts.delete(region);
-        return this.openAttempt(region, url, false);
+        return this.openAttempt(region, url, false, mode);
       }
       throw error;
     }

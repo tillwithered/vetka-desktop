@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
+import { canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, shouldOpenCaptchaWindow, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
 
 const temporaryDirectories: string[] = [];
 function temporaryResources() {
@@ -63,4 +63,9 @@ describe('isTransientAmazonResponse', () => {
 describe('isOfficialStoreUrl', () => {
   it('recognizes a Monster High Amazon Store page that needs lazy sections loaded', () => expect(isOfficialStoreUrl('https://www.amazon.co.uk/stores/MonsterHigh/page/F08243CA-36AF-405B-B3CF-BF5EA9644BBE')).toBe(true));
   it('does not scroll individual product pages', () => expect(isOfficialStoreUrl('https://www.amazon.co.uk/dp/B0FK1V67X5')).toBe(false));
+});
+
+describe('shouldOpenCaptchaWindow', () => {
+  it('never opens an interactive browser window for an official Store request', () => expect(shouldOpenCaptchaWindow('store')).toBe(false));
+  it('keeps the interactive CAPTCHA path for an explicit individual product request', () => expect(shouldOpenCaptchaWindow('product')).toBe(true));
 });
