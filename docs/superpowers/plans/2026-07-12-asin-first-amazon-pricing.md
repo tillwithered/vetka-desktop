@@ -186,7 +186,7 @@ it('refreshes active confirmed ASINs after Store discovery', async () => {
     schedule: vi.fn(), clearSchedule: vi.fn(),
   });
   await service.runNow();
-  expect(officialStoreImport.run).toHaveBeenCalledBefore(asinPriceRefresh.run as never);
+  expect(officialStoreImport.run.mock.invocationCallOrder[0]).toBeLessThan(asinPriceRefresh.run.mock.invocationCallOrder[0]);
   expect(asinPriceRefresh.run).toHaveBeenCalledWith(['amazon_uk'], expect.any(Function));
   expect(service.getState()).toMatchObject({ status: 'idle', phase: 'catalog_scan', processed: 1, total: 1, lastError: null });
 });
