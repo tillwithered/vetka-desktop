@@ -61,15 +61,16 @@ export function publicProxyTransportState(transport: AmazonProxyTransport): Publ
   };
 }
 
+export function hasProxyRoute(transport: AmazonProxyTransport, region: AmazonRegion): boolean {
+  return transport.mode === 'proxy' && (transport.routes[region] ?? []).length > 0;
+}
+
 /**
- * A proxy-mode scan must never silently fall back to the local IP for regions
- * without a route. That makes a partial proxy setup look like an Amazon
- * collector failure and can burn the operator's direct IP.
+ * Catalog checks begin directly. A configured proxy is a recovery route, not
+ * a gate that hides a region from its regular daily check.
  */
-export function regionsForCatalogScan(transport: AmazonProxyTransport): AmazonRegion[] {
-  if (transport.mode !== 'proxy') return [...amazonRegions];
-  const configured = amazonRegions.filter((region) => (transport.routes[region] ?? []).length > 0);
-  return configured;
+export function regionsForCatalogScan(_transport: AmazonProxyTransport): AmazonRegion[] {
+  return [...amazonRegions];
 }
 
 export class ProxyRouteSelector {
@@ -78,7 +79,7 @@ export class ProxyRouteSelector {
   constructor(private readonly transport: AmazonProxyTransport) {}
 
   current(region: AmazonRegion): ProxyRoute | null {
-    if (this.transport.mode !== 'proxy') return null;
+    if (!hasProxyRoute(this.transport, region)) return null;
     const routes = this.transport.routes[region] ?? [];
     return routes[this.indexes.get(region) ?? 0] ?? null;
   }

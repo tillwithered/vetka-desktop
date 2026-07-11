@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { parseAmazonProductPage } from '@/collector/amazon/product-page';
+import { parseAmazonProductPage, shouldRetryWithProxy } from '@/collector/amazon/product-page';
 import type { AmazonRegion } from '@/shared/contracts';
 
 const fixture = (name: string) => readFileSync(path.join(__dirname, '..', 'fixtures', 'amazon', `${name}.html`), 'utf8');
@@ -79,5 +79,15 @@ describe('parseAmazonProductPage', () => {
 
   it('rejects a different product identity', () => {
     expect(parseAmazonProductPage(fixture('amazon_us'), { region: 'amazon_us' as AmazonRegion, expectedAsin: 'B000000000' }).status).toBe('identity_mismatch');
+  });
+});
+
+describe('shouldRetryWithProxy', () => {
+  it.each(['blocked', 'captcha_required'] as const)('retries %s through the regional proxy', (status) => {
+    expect(shouldRetryWithProxy(status)).toBe(true);
+  });
+
+  it.each(['no_price', 'out_of_stock', 'identity_mismatch', 'conflict', 'parser_changed'] as const)('does not spend proxy bandwidth for %s', (status) => {
+    expect(shouldRetryWithProxy(status)).toBe(false);
   });
 });

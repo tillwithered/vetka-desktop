@@ -55,6 +55,10 @@ export function isAmazonCaptcha(html: string): boolean {
   return /validateCaptcha|enter the characters you see below|robot check/i.test(html);
 }
 
+export function shouldRetryWithProxy(status: AmazonPageStatus): boolean {
+  return status === 'blocked' || status === 'captcha_required';
+}
+
 function firstText($: ReturnType<typeof load>, selectors: string[]): string | null {
   for (const selector of selectors) {
     const value = $(selector).first().text().replace(/\s+/g, ' ').trim();
