@@ -42,6 +42,13 @@ function normalizedText(value: string | undefined | null): string | null {
   return text || null;
 }
 
+function cardPrice($: ReturnType<typeof load>, card: ReturnType<ReturnType<typeof load>>, currency: AmazonCurrency) {
+  const structured = card.find('.a-offscreen, [data-testid*="price"], [data-a-price]').toArray()
+    .map((node) => parseLocalizedMoney($(node).text(), currency))
+    .find((candidate) => candidate !== null);
+  return structured ?? parseLocalizedMoney(card.text(), currency);
+}
+
 function cardContainer($: ReturnType<typeof load>, element: ReturnType<ReturnType<typeof load>>) {
   const candidates = [element.get(0), ...element.parents().toArray()].filter(Boolean).slice(0, 8);
   for (const candidate of candidates) {
@@ -49,8 +56,7 @@ function cardContainer($: ReturnType<typeof load>, element: ReturnType<ReturnTyp
     const productAsins = new Set(card.find('a[href*="/dp/"], a[href*="/gp/product/"]').toArray()
       .map((link) => $(link).attr('href')?.match(/\/(?:dp|gp\/product)\/([a-z0-9]{10})(?=\/|[?#]|$)/i)?.[1]?.toUpperCase())
       .filter((asin): asin is string => Boolean(asin)));
-    const priceNodes = card.find('.a-offscreen, [data-testid*="price"], [data-a-price]').length;
-    if (productAsins.size === 1 && priceNodes > 0) return card;
+    if (productAsins.size === 1) return card;
   }
   return null;
 }
@@ -73,11 +79,10 @@ export function parseAmazonStoreCards(html: string, region: AmazonRegion): Offic
       card.find('h1, h2, h3, h4').first().text(),
       card.find('img[alt]').first().attr('alt'),
       link.text(),
+      card.text(),
     ];
     const name = titleCandidates.map(normalizedText).find((candidate) => candidate && monsterHighPattern.test(candidate)) ?? null;
-    const price = card.find('.a-offscreen, [data-testid*="price"], [data-a-price]').toArray()
-      .map((node) => parseLocalizedMoney($(node).text(), currency))
-      .find((candidate) => candidate !== null) ?? null;
+    const price = cardPrice($, card, currency);
     const sku = name?.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
     if (!name || !sku || !price || !dollPattern.test(name) || nonDollPattern.test(name)) return;
 

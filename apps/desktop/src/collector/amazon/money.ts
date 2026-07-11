@@ -30,17 +30,16 @@ export function parseLocalizedMoney(text: string, currency: AmazonCurrency): Par
         : 'KZT';
   const before = new RegExp(`${marker}\\s*([0-9][0-9.,\\s\\u00a0\\u202f]*)`, 'gi');
   const after = new RegExp(`([0-9][0-9.,\\s\\u00a0\\u202f]*)\\s*${marker}`, 'gi');
-  const amounts: number[] = [];
-
-  for (const expression of [before, after]) {
-    for (const match of withoutUnitPrices.matchAll(expression)) {
-      const minor = numericToMinor(match[1].trim(), currency);
-      if (minor !== null) amounts.push(minor);
-    }
-  }
-
-  const unique = [...new Set(amounts)];
-  return unique.length === 1 ? { minor: unique[0], currency } : null;
+  const amountsFor = (expression: RegExp) => [...withoutUnitPrices.matchAll(expression)]
+    .map((match) => numericToMinor(match[1].trim(), currency))
+    .filter((minor): minor is number => minor !== null);
+  const beforeAmounts = [...new Set(amountsFor(before))];
+  // Store-card text can concatenate a Mattel SKU and a price (for example,
+  // `JHK59£24.99`). Prefer the amount following the currency marker so the
+  // SKU suffix is not treated as a second price.
+  if (beforeAmounts.length === 1) return { minor: beforeAmounts[0], currency };
+  const afterAmounts = [...new Set(amountsFor(after))];
+  return afterAmounts.length === 1 ? { minor: afterAmounts[0], currency } : null;
 }
 
 export function parseStructuredMoney(value: unknown, currency: AmazonCurrency): ParsedMoney | null {

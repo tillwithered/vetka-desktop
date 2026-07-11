@@ -38,10 +38,10 @@ describe('official Monster High Store parsing', () => {
   it('finds a Store card when Amazon wraps it in generic divs', () => {
     const html = `
       <div class="store-card">
-        <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59"></a>
+        <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Robecca product image"></a>
         <a href="/Monster-High-Robecca/dp/B0FK1V67X5">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</a>
         <div class="title">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</div>
-        <span class="a-offscreen">GBP 24.99</span>
+        <span>&pound;24.99</span>
       </div>`;
 
     expect(parseAmazonStoreCards(html, 'amazon_uk')).toMatchObject([{
