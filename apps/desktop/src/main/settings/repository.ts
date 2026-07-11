@@ -29,6 +29,8 @@ export class SettingsRepository {
       key: string;
       value_json: string;
     }>;
-    return Object.fromEntries(rows.map((row) => [row.key, JSON.parse(row.value_json)]));
+    return Object.fromEntries(rows
+      .filter((row) => !row.key.startsWith('_private.'))
+      .map((row) => [row.key, JSON.parse(row.value_json)]));
   }
 }

@@ -12,11 +12,16 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { unwrap } from '@/renderer/lib/ipc-query';
-import type { UpdateState } from '@/shared/contracts';
+import type { AmazonRegion, PublicAmazonProxyTransport, UpdateState } from '@/shared/contracts';
 
 type Rates = Record<string, { rateMicros: number; updatedAt?: string; source?: 'nbk' | 'manual' }>;
 type StoredSettings = { exchangeRates?: Rates; exchangeRatesMode?: 'auto' | 'manual'; deliveryDefaults?: { weightGrams: number; tariffPerKg: number } };
+const amazonRegions: Array<{ id: AmazonRegion; label: string }> = [
+  { id: 'amazon_us', label: 'Amazon US' }, { id: 'amazon_uk', label: 'Amazon UK' }, { id: 'amazon_de', label: 'Amazon DE' },
+  { id: 'amazon_es', label: 'Amazon ES' }, { id: 'amazon_it', label: 'Amazon IT' },
+];
 
 function updateCopy(update: UpdateState): string {
   if (update.status === 'checking') return 'Проверяем наличие новой версии.';
@@ -29,7 +34,11 @@ function updateCopy(update: UpdateState): string {
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings'], queryFn: async () => unwrap(await window.vetka.settings.getAll()) as StoredSettings });
+  const collectorTransport = useQuery({ queryKey: ['collector-transport'], queryFn: async () => unwrap(await window.vetka.collectorTransport.get()) as PublicAmazonProxyTransport });
   const [modeOverride, setModeOverride] = useState<'auto' | 'manual' | null>(null);
+  const [collectorModeOverride, setCollectorModeOverride] = useState<'direct' | 'proxy' | null>(null);
+  const [routeDrafts, setRouteDrafts] = useState<Partial<Record<AmazonRegion, string>>>({});
+  const [savingTransport, setSavingTransport] = useState(false);
   const [version, setVersion] = useState('');
   const [update, setUpdate] = useState<UpdateState>({ status: 'idle' });
 
@@ -47,6 +56,7 @@ export function SettingsPage() {
   const rates = settings.data?.exchangeRates ?? {};
   const mode = modeOverride ?? settings.data?.exchangeRatesMode ?? 'auto';
   const manual = mode === 'manual';
+  const collectorMode = collectorModeOverride ?? collectorTransport.data?.mode ?? 'direct';
   const delivery = settings.data?.deliveryDefaults ?? { weightGrams: 700, tariffPerKg: 12 };
   const updatedAt = rates.USD?.updatedAt ? new Date(rates.USD.updatedAt) : null;
   const stale = !updatedAt || rates.USD?.source !== 'nbk' || Date.now() - updatedAt.getTime() > 48 * 60 * 60 * 1000;
@@ -79,6 +89,23 @@ export function SettingsPage() {
     else setUpdate({ status: 'error', message: 'safe' });
   }
 
+  async function saveCollectorTransport() {
+    setSavingTransport(true);
+    try {
+      const routes = Object.fromEntries(amazonRegions
+        .map(({ id }) => [id, (routeDrafts[id] ?? '').split(/\r?\n/).map((route) => route.trim()).filter(Boolean)])
+        .filter(([, values]) => (values as string[]).length > 0)) as Partial<Record<AmazonRegion, string[]>>;
+      unwrap(await window.vetka.collectorTransport.set({ mode: collectorMode, ...(Object.keys(routes).length > 0 ? { routes } : {}) }));
+      await queryClient.invalidateQueries({ queryKey: ['collector-transport'] });
+      setRouteDrafts({});
+      toast.success('Маршруты Amazon сохранены');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить маршруты Amazon');
+    } finally {
+      setSavingTransport(false);
+    }
+  }
+
   async function restartAndInstall() {
     const result = await window.vetka.updates.restartAndInstall();
     if (!result.ok) toast.error('Не удалось перезапустить приложение');
@@ -88,6 +115,27 @@ export function SettingsPage() {
     <section className="flex flex-1 flex-col gap-6 p-6">
       <PageHeader title="Настройки" description="Курсы, доставка и параметры приложения" />
       <form className="max-w-4xl space-y-8" onSubmit={save}>
+        <FormSection title="Транспорт Amazon" description="Vetka собирает данные сама. Маршрут закреплён за регионом и меняется только после CAPTCHA или временной блокировки.">
+          <div className="flex flex-wrap items-center gap-3">
+            <Switch checked={collectorMode === 'proxy'} onCheckedChange={(checked) => setCollectorModeOverride(checked ? 'proxy' : 'direct')} aria-label="Использовать proxy для Amazon" />
+            <span className="text-sm font-medium">{collectorMode === 'proxy' ? 'Residential proxy' : 'Прямое соединение'}</span>
+            {collectorMode === 'proxy' ? <Badge>Sticky-сессии</Badge> : <Badge variant="secondary">Без proxy</Badge>}
+          </div>
+          {collectorMode === 'proxy' ? <div className="space-y-4">
+            <Alert><AlertTriangleIcon /><AlertTitle>Доступы хранятся локально и зашифрованы Windows</AlertTitle><AlertDescription>Одна строка — один HTTP(S) proxy URL. Сохранённые пароли не показываются повторно.</AlertDescription></Alert>
+            <FieldGroup className="space-y-4">
+              {amazonRegions.map(({ id, label }) => {
+                const saved = collectorTransport.data?.regions[id];
+                return <Field key={id} className="max-w-2xl">
+                  <FieldLabel htmlFor={`proxy-route-${id}`}>{label} proxy URL</FieldLabel>
+                  <Textarea id={`proxy-route-${id}`} aria-label={`${label} proxy URL`} value={routeDrafts[id] ?? ''} onChange={(event) => setRouteDrafts((current) => ({ ...current, [id]: event.target.value }))} placeholder="http://user:password@gateway:port" />
+                  <FieldDescription>{saved?.configured ? `Сохранено маршрутов: ${saved.routeCount} (${saved.labels.join(', ')})` : 'Без маршрута регион использует прямое соединение.'}</FieldDescription>
+                </Field>;
+              })}
+            </FieldGroup>
+          </div> : <p className="text-sm text-muted-foreground">Можно оставить как резервный режим. Введённые маршруты не показываются и не меняются, пока вы не сохраните новый список.</p>}
+          <Button type="button" size="sm" disabled={savingTransport || collectorTransport.isLoading} onClick={() => void saveCollectorTransport()}><SaveIcon />Сохранить маршруты</Button>
+        </FormSection>
         <FormSection title="Курсы валют" description="Курс фиксируется в момент сохранения цены и не меняет уже созданные заказы.">
           <div className="mb-4 flex items-center gap-3">
             <Switch checked={manual} onCheckedChange={(checked) => setModeOverride(checked ? 'manual' : 'auto')} aria-label="Ручной режим курсов" />

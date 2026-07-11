@@ -3,6 +3,7 @@ import type { AmazonCandidate } from './amazon/search';
 import type { CatalogOfferRules, MatchDecision } from './amazon/matching';
 import type { OfficialStoreDoll } from './amazon/store';
 import type { AmazonRegion } from '@/shared/contracts';
+import type { AmazonProxyTransport } from '@/main/collector/proxy-transport';
 
 export type CollectorDollIdentity = {
   id: string;
@@ -31,6 +32,7 @@ export type CollectorRequest = {
   knownListings: KnownAmazonListing[];
   regions: AmazonRegion[];
   catalogRules?: CatalogOfferRules;
+  transport?: AmazonProxyTransport;
 };
 
 export type CollectorRequestInput = Omit<CollectorRequest, 'type' | 'requestId' | 'regions'> & {
@@ -45,7 +47,7 @@ export type CollectorRegionResult = AmazonPageResult & {
 };
 
 export type CollectorOfficialStoreRequest = {
-  type: 'import-official-store'; requestId: string; dataDir: string; regions: AmazonRegion[];
+  type: 'import-official-store'; requestId: string; dataDir: string; regions: AmazonRegion[]; transport?: AmazonProxyTransport;
 };
 
 export type CollectorOfficialStoreResult = {

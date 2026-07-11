@@ -24,7 +24,7 @@ type OfferInput = {
   shippingMinor: number | null;
   sellerName: string | null;
   fulfilledByAmazon: boolean;
-  availability: 'in_stock' | 'preorder';
+  availability: 'in_stock' | 'preorder' | 'unknown';
   condition: 'New';
   couponText: string | null;
   rateToKztMicros: number;

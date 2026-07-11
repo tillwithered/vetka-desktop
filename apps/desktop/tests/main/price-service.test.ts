@@ -135,4 +135,24 @@ describe('PriceService', () => {
     await service.refreshDoll(doll.id, ['amazon_us']);
     expect(dolls.get(doll.id)?.imagePath).toBe('C:/manual.jpg');
   });
+
+  it('persists a Store-card price whose stock state has not been opened on a product page', () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const doll = new DollRepository(db).create({ name: 'Robecca Steam', mattelSku: 'JHK59' });
+    const prices = new PriceRepository(db);
+    const service = new PriceService({
+      db, prices, collector: { refreshDoll: vi.fn() }, dataDir: 'C:/data', getRate: () => 650_000_000,
+    });
+
+    service.persistOfficialStoreOffer(doll.id, {
+      region: 'amazon_uk', asin: 'B0FK1V67X5', url: 'https://www.amazon.co.uk/dp/B0FK1V67X5',
+      name: 'Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59', mattelSku: 'JHK59',
+      imageUrl: null, price: { minor: 2499, currency: 'GBP' }, seller: null,
+      fulfilledByAmazon: false, availability: 'unknown',
+    });
+
+    expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({
+      priceMinor: 2499, currency: 'GBP', availability: 'unknown',
+    }));
+  });
 });

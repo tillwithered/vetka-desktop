@@ -31,6 +31,10 @@ const api: VetkaDesktopApi = {
     getAll: () => ipcRenderer.invoke(channels.settingsGetAll),
     set: (key, value) => ipcRenderer.invoke(channels.settingsSet, { key, value }),
   },
+  collectorTransport: {
+    get: () => ipcRenderer.invoke(channels.collectorTransportGet),
+    set: (input) => ipcRenderer.invoke(channels.collectorTransportSet, input),
+  },
   catalog: {
     getScanState: () => ipcRenderer.invoke(channels.catalogGetScanState),
     refreshNow: () => ipcRenderer.invoke(channels.catalogRefreshNow),

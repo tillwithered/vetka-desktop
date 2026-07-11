@@ -46,4 +46,26 @@ describe('SettingsPage', () => {
     expect(window.vetka.updates.restartAndInstall).not.toHaveBeenCalled();
     expect(screen.getByText('Vetka Desktop v1.0.16')).toBeInTheDocument();
   });
+
+  it('saves residential proxy routes through the dedicated collector transport API', async () => {
+    const user = userEvent.setup();
+    window.vetka.settings.getAll = vi.fn(async () => ({ ok: true as const, data: {} }));
+    window.vetka.collectorTransport.get = vi.fn(async () => ({ ok: true as const, data: { mode: 'direct' as const, regions: {
+      amazon_us: { configured: false, routeCount: 0, labels: [] }, amazon_uk: { configured: false, routeCount: 0, labels: [] },
+      amazon_de: { configured: false, routeCount: 0, labels: [] }, amazon_es: { configured: false, routeCount: 0, labels: [] }, amazon_it: { configured: false, routeCount: 0, labels: [] },
+    } } }));
+    window.vetka.collectorTransport.set = vi.fn(async () => ({ ok: true as const, data: { mode: 'proxy' as const, regions: {
+      amazon_us: { configured: false, routeCount: 0, labels: [] }, amazon_uk: { configured: true, routeCount: 1, labels: ['uk.example:10000'] },
+      amazon_de: { configured: false, routeCount: 0, labels: [] }, amazon_es: { configured: false, routeCount: 0, labels: [] }, amazon_it: { configured: false, routeCount: 0, labels: [] },
+    } } }));
+    renderPage();
+
+    await user.click(await screen.findByRole('switch', { name: 'Использовать proxy для Amazon' }));
+    await user.type(screen.getByLabelText('Amazon UK proxy URL'), 'http://violet:very-secret@uk.example:10000');
+    await user.click(screen.getByRole('button', { name: 'Сохранить маршруты' }));
+
+    expect(window.vetka.collectorTransport.set).toHaveBeenCalledWith({
+      mode: 'proxy', routes: { amazon_uk: ['http://violet:very-secret@uk.example:10000'] },
+    });
+  });
 });

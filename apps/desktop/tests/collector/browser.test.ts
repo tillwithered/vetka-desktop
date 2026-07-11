@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, shouldOpenCaptchaWindow, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
+import { BrowserCollectorDriver, canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, profileForProxyRoute, playwrightProxyOptions, shouldBlockAmazonResource, shouldOpenCaptchaWindow, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
 
 const temporaryDirectories: string[] = [];
 function temporaryResources() {
@@ -68,4 +68,45 @@ describe('isOfficialStoreUrl', () => {
 describe('shouldOpenCaptchaWindow', () => {
   it('never opens an interactive browser window for an official Store request', () => expect(shouldOpenCaptchaWindow('store')).toBe(false));
   it('keeps the interactive CAPTCHA path for an explicit individual product request', () => expect(shouldOpenCaptchaWindow('product')).toBe(true));
+});
+
+describe('shouldBlockAmazonResource', () => {
+  it('keeps Store HTML and scripts while skipping non-essential bytes', () => {
+    expect(shouldBlockAmazonResource('document')).toBe(false);
+    expect(shouldBlockAmazonResource('script')).toBe(false);
+    expect(shouldBlockAmazonResource('image')).toBe(true);
+    expect(shouldBlockAmazonResource('font')).toBe(true);
+    expect(shouldBlockAmazonResource('media')).toBe(true);
+  });
+});
+
+describe('proxy browser isolation', () => {
+  const route = { server: 'http://uk.example:10000', username: 'violet', password: 'very-secret', label: 'uk.example:10000' };
+
+  it('passes proxy credentials only to Playwright launch options', () => {
+    expect(playwrightProxyOptions(route)).toEqual({ server: 'http://uk.example:10000', username: 'violet', password: 'very-secret' });
+    expect(playwrightProxyOptions(null)).toBeUndefined();
+  });
+
+  it('uses a proxy-specific profile name without leaking credentials', () => {
+    const profile = profileForProxyRoute('amazon_uk', route);
+    expect(profile).toMatch(/^amazon_uk[\\/]route-[a-f0-9]{12}$/);
+    expect(profile).not.toContain('violet');
+    expect(profile).not.toContain('very-secret');
+  });
+
+  it('keeps the active route until the collector explicitly advances it', async () => {
+    const driver = new BrowserCollectorDriver('C:/data', 'C:/fake-browser.exe');
+    await driver.configureTransport({
+      mode: 'proxy', routes: { amazon_uk: [
+        route,
+        { server: 'http://uk-two.example:10000', label: 'uk-two.example:10000' },
+      ] },
+    });
+
+    expect(driver.currentProxyRoute('amazon_uk')?.label).toBe('uk.example:10000');
+    expect(await driver.advanceProxyRoute('amazon_uk')).toBe(true);
+    expect(driver.currentProxyRoute('amazon_uk')?.label).toBe('uk-two.example:10000');
+    expect(await driver.advanceProxyRoute('amazon_uk')).toBe(false);
+  });
 });

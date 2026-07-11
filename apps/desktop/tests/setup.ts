@@ -39,6 +39,18 @@ const testApi: VetkaDesktopApi = {
     setFavorite: async () => ({ ok: false, error: { code: 'TEST', message: 'Not mocked' } }),
   },
   settings: { getAll: async () => ({ ok: true, data: {} }), set: async (_key: string, value: unknown) => ({ ok: true, data: value }) },
+  collectorTransport: {
+    get: async () => ({ ok: true, data: { mode: 'direct', regions: {
+      amazon_us: { configured: false, routeCount: 0, labels: [] }, amazon_uk: { configured: false, routeCount: 0, labels: [] },
+      amazon_de: { configured: false, routeCount: 0, labels: [] }, amazon_es: { configured: false, routeCount: 0, labels: [] },
+      amazon_it: { configured: false, routeCount: 0, labels: [] },
+    } } }),
+    set: async () => ({ ok: true, data: { mode: 'direct', regions: {
+      amazon_us: { configured: false, routeCount: 0, labels: [] }, amazon_uk: { configured: false, routeCount: 0, labels: [] },
+      amazon_de: { configured: false, routeCount: 0, labels: [] }, amazon_es: { configured: false, routeCount: 0, labels: [] },
+      amazon_it: { configured: false, routeCount: 0, labels: [] },
+    } } }),
+  },
   catalog: {
     getScanState: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 } }),
     refreshNow: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 } }),

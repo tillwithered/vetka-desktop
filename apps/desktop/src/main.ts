@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, safeStorage } from 'electron';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import started from 'electron-squirrel-startup';
@@ -9,6 +9,7 @@ import { rotateBackups } from './main/db/backup';
 import { DollRepository } from './main/dolls/repository';
 import { registerIpcHandlers } from './main/ipc/register-ipc';
 import { SettingsRepository } from './main/settings/repository';
+import { ProxyTransportRepository } from './main/settings/proxy-transport-repository';
 import { CollectorClient } from './main/collector/client';
 import { PriceRepository } from './main/prices/repository';
 import { PriceService } from './main/prices/service';
@@ -85,6 +86,7 @@ app.whenReady().then(async () => {
   const catalog = new CatalogRepository(database, dolls);
   catalog.importSeed(monsterHighSkuCatalog);
   const settings = new SettingsRepository(database);
+  const proxyTransport = new ProxyTransportRepository(settings, safeStorage);
   const nbkRates = new NbkRateService({ get: settings.get.bind(settings), set: settings.set.bind(settings) });
   void nbkRates.refresh().catch((): undefined => undefined);
   setInterval(() => { void nbkRates.refresh().catch((): undefined => undefined); }, 86_400_000);
@@ -107,7 +109,7 @@ app.whenReady().then(async () => {
       onStateChanged: (state) => broadcastUpdateState(BrowserWindow.getAllWindows(), state),
     })
     : undefined;
-  collector = new CollectorClient({ workerPath: path.join(__dirname, 'worker.js') });
+  collector = new CollectorClient({ workerPath: path.join(__dirname, 'worker.js'), getTransport: () => proxyTransport.getResolved() });
   collector.onProgress((event) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channels.collectorProgress, event);
@@ -142,6 +144,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers(ipcMain, {
     dolls,
     settings,
+    proxyTransport,
     prices,
     priceService,
     orders,

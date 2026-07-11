@@ -45,6 +45,22 @@ export type DollInput = z.infer<typeof dollInputSchema>;
 export type DollUpdate = z.infer<typeof dollUpdateSchema>;
 export type DollListFilter = z.infer<typeof dollListFilterSchema>;
 
+export const amazonProxyTransportInputSchema = z.object({
+  mode: z.enum(['direct', 'proxy']),
+  routes: z.object({
+    amazon_us: z.array(z.string().trim().min(1).max(2048)).max(5).optional(),
+    amazon_uk: z.array(z.string().trim().min(1).max(2048)).max(5).optional(),
+    amazon_de: z.array(z.string().trim().min(1).max(2048)).max(5).optional(),
+    amazon_es: z.array(z.string().trim().min(1).max(2048)).max(5).optional(),
+    amazon_it: z.array(z.string().trim().min(1).max(2048)).max(5).optional(),
+  }).optional(),
+});
+export type AmazonProxyTransportInput = z.infer<typeof amazonProxyTransportInputSchema>;
+export type PublicAmazonProxyTransport = {
+  mode: 'direct' | 'proxy';
+  regions: Record<AmazonRegion, { configured: boolean; routeCount: number; labels: string[] }>;
+};
+
 export type Doll = DollInput & {
   id: string;
   isFavorite: boolean;
@@ -130,6 +146,10 @@ export type VetkaDesktopApi = {
   settings: {
     getAll(): Promise<ApiResult<Record<string, unknown>>>;
     set(key: string, value: unknown): Promise<ApiResult<unknown>>;
+  };
+  collectorTransport: {
+    get(): Promise<ApiResult<PublicAmazonProxyTransport>>;
+    set(input: AmazonProxyTransportInput): Promise<ApiResult<PublicAmazonProxyTransport>>;
   };
   catalog: {
     getScanState(): Promise<ApiResult<CatalogScanState>>;

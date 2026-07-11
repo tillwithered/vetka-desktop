@@ -2,6 +2,7 @@ import { load } from 'cheerio';
 
 import type { AmazonRegion } from '@/shared/contracts';
 
+import { parseLocalizedMoney } from './money';
 import { parseAmazonProductPage } from './product-page';
 import { amazonRegions, type AmazonCurrency } from './regions';
 
@@ -22,25 +23,80 @@ export type OfficialStoreDoll = StoreLink & {
   price: { minor: number; currency: AmazonCurrency };
   seller: string | null;
   fulfilledByAmazon: boolean;
-  availability: 'in_stock' | 'preorder';
+  availability: 'in_stock' | 'preorder' | 'unknown';
 };
 
 const nonDollPattern = /\b(accessor(?:y|ies)|replacement|shoes?|boots?|clothes?|outfits?|stand|case|bag|wig|furniture|vehicle|earphones?|headphones?)\b/i;
 const dollPattern = /\b(doll|puppe|muñeca|bambola)\b/i;
 const monsterHighPattern = /monster\s+high|mattel/i;
 
+function linkFromHref(region: AmazonRegion, href: string): StoreLink | null {
+  const match = href.match(/\/(?:dp|gp\/product)\/([a-z0-9]{10})(?=\/|[?#]|$)/i);
+  if (!match) return null;
+  const asin = match[1].toUpperCase();
+  return { region, asin, url: `https://${amazonRegions[region].host}/dp/${asin}` };
+}
+
+function normalizedText(value: string | undefined | null): string | null {
+  const text = value?.replace(/\s+/g, ' ').trim();
+  return text || null;
+}
+
+function cardContainer($: ReturnType<typeof load>, element: ReturnType<ReturnType<typeof load>>) {
+  const parent = element.parents().toArray().find((candidate) => $(candidate).is('[data-asin], article, li'));
+  return parent ? $(parent) : null;
+}
+
+export function parseAmazonStoreCards(html: string, region: AmazonRegion): OfficialStoreDoll[] {
+  const $ = load(html);
+  const seen = new Set<string>();
+  const products: OfficialStoreDoll[] = [];
+  const currency = amazonRegions[region].currency;
+
+  $('a[href*="/dp/"], a[href*="/gp/product/"]').each((_index, element) => {
+    const link = $(element);
+    const listing = linkFromHref(region, link.attr('href') ?? '');
+    if (!listing || seen.has(listing.asin)) return;
+    const card = cardContainer($, link);
+    if (!card) return;
+
+    const titleCandidates = [
+      link.attr('aria-label'),
+      card.find('h1, h2, h3, h4').first().text(),
+      card.find('img[alt]').first().attr('alt'),
+      link.text(),
+    ];
+    const name = titleCandidates.map(normalizedText).find((candidate) => candidate && monsterHighPattern.test(candidate)) ?? null;
+    const price = card.find('.a-offscreen, [data-testid*="price"], [data-a-price]').toArray()
+      .map((node) => parseLocalizedMoney($(node).text(), currency))
+      .find((candidate) => candidate !== null) ?? null;
+    const sku = name?.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
+    if (!name || !sku || !price || !dollPattern.test(name) || nonDollPattern.test(name)) return;
+
+    seen.add(listing.asin);
+    products.push({
+      ...listing,
+      name,
+      mattelSku: sku,
+      imageUrl: card.find('img[src]').first().attr('src') ?? null,
+      price,
+      seller: null,
+      fulfilledByAmazon: false,
+      availability: 'unknown',
+    });
+  });
+  return products;
+}
+
 export function parseAmazonStoreLinks(html: string, region: AmazonRegion): StoreLink[] {
   const $ = load(html);
   const seen = new Set<string>();
   const links: StoreLink[] = [];
-  $('a[href*="/dp/"]').each((_index, element) => {
-    const href = $(element).attr('href') ?? '';
-    const match = href.match(/\/(?:dp|gp\/product)\/([a-z0-9]{10})(?=\/|[?#]|$)/i);
-    if (!match) return;
-    const asin = match[1].toUpperCase();
-    if (seen.has(asin)) return;
-    seen.add(asin);
-    links.push({ region, asin, url: `https://${amazonRegions[region].host}/dp/${asin}` });
+  $('a[href*="/dp/"], a[href*="/gp/product/"]').each((_index, element) => {
+    const listing = linkFromHref(region, $(element).attr('href') ?? '');
+    if (!listing || seen.has(listing.asin)) return;
+    seen.add(listing.asin);
+    links.push(listing);
   });
   return links;
 }

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
@@ -6,6 +7,7 @@ import type { BrowserContext, Page } from 'playwright-core';
 import type { AmazonRegion } from '@/shared/contracts';
 import type { CollectorDriver } from './amazon/collect';
 import { amazonRegions } from './amazon/regions';
+import { parseAmazonProxyTransport, ProxyRouteSelector, type AmazonProxyTransport, type ProxyRoute } from '@/main/collector/proxy-transport';
 
 export type BrowserRequestMode = 'product' | 'store';
 
@@ -75,6 +77,24 @@ export function shouldOpenCaptchaWindow(mode: BrowserRequestMode): boolean {
   return mode === 'product';
 }
 
+export function shouldBlockAmazonResource(resourceType: string): boolean {
+  return resourceType === 'image' || resourceType === 'font' || resourceType === 'media';
+}
+
+export function playwrightProxyOptions(route: ProxyRoute | null): { server: string; username?: string; password?: string } | undefined {
+  return route ? {
+    server: route.server,
+    ...(route.username ? { username: route.username } : {}),
+    ...(route.password ? { password: route.password } : {}),
+  } : undefined;
+}
+
+export function profileForProxyRoute(region: AmazonRegion, route: ProxyRoute | null): string {
+  if (!route) return path.join(region, 'direct');
+  const fingerprint = createHash('sha256').update(`${route.server}\u0000${route.username ?? ''}`).digest('hex').slice(0, 12);
+  return path.join(region, `route-${fingerprint}`);
+}
+
 function loadPlaywright(): typeof import('playwright-core') {
   const packagedManifest = path.join(process.resourcesPath ?? '', 'playwright-core', 'package.json');
   const requirePlaywright = existsSync(packagedManifest) ? createRequire(packagedManifest) : createRequire(__filename);
@@ -84,8 +104,32 @@ function loadPlaywright(): typeof import('playwright-core') {
 export class BrowserCollectorDriver implements CollectorDriver {
   private readonly contexts = new Map<AmazonRegion, BrowserContext>();
   private readonly challengeContexts = new Map<AmazonRegion, BrowserContext>();
+  private proxyRoutes = new ProxyRouteSelector(parseAmazonProxyTransport({ mode: 'direct' }));
+  private transportSignature = JSON.stringify({ mode: 'direct', routes: {} });
 
   constructor(private readonly dataDir: string, private readonly executablePath = findBrowserExecutable()) {}
+
+  async configureTransport(transport: AmazonProxyTransport | undefined): Promise<void> {
+    const effective = transport ?? parseAmazonProxyTransport({ mode: 'direct' });
+    const signature = JSON.stringify(effective);
+    if (signature === this.transportSignature) return;
+    await this.close();
+    this.transportSignature = signature;
+    this.proxyRoutes = new ProxyRouteSelector(effective);
+  }
+
+  currentProxyRoute(region: AmazonRegion): ProxyRoute | null {
+    return this.proxyRoutes.current(region);
+  }
+
+  async advanceProxyRoute(region: AmazonRegion): Promise<boolean> {
+    if (!this.proxyRoutes.advance(region)) return false;
+    const context = this.contexts.get(region);
+    if (context) await context.close().catch((): undefined => undefined);
+    this.contexts.delete(region);
+    await this.closeChallenge(region);
+    return true;
+  }
 
   async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url, 'product'); }
   async openStore(region: AmazonRegion, url: string): Promise<string> {
@@ -117,12 +161,16 @@ export class BrowserCollectorDriver implements CollectorDriver {
   private async launchContext(region: AmazonRegion, headless: boolean): Promise<BrowserContext> {
     if (!this.executablePath) throw new BrowserNotFoundError();
     const config = amazonRegions[region];
-    return loadPlaywright().chromium.launchPersistentContext(path.join(this.dataDir, 'amazon-profiles', region), {
+    const route = this.currentProxyRoute(region);
+    const context = await loadPlaywright().chromium.launchPersistentContext(path.join(this.dataDir, 'amazon-profiles', profileForProxyRoute(region, route)), {
       executablePath: this.executablePath,
       headless,
       locale: config.locale,
       viewport: { width: 1365, height: 900 },
+      proxy: playwrightProxyOptions(route),
     });
+    await context.route('**/*', (route) => (shouldBlockAmazonResource(route.request().resourceType()) ? route.abort() : route.continue()));
+    return context;
   }
 
   private async context(region: AmazonRegion): Promise<BrowserContext> {

@@ -1,0 +1,45 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { collectOfficialStore } from '@/collector/amazon/store-collect';
+
+describe('official Store collection', () => {
+  it('keeps a verified price from the Store card and skips its product page', async () => {
+    const storeHtml = `
+      <article data-asin="B0FK1V67X5">
+        <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59"></a>
+        <h2>Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</h2>
+        <span class="a-offscreen">£24.99</span>
+      </article>`;
+    const driver = {
+      openStore: vi.fn(async () => storeHtml),
+      openStoreProduct: vi.fn(async () => ''),
+    };
+
+    const result = await collectOfficialStore({ requestId: 'request-1', regions: ['amazon_uk'], driver });
+
+    expect(result.products).toMatchObject([{ asin: 'B0FK1V67X5', mattelSku: 'JHK59', price: { minor: 2499, currency: 'GBP' } }]);
+    expect(driver.openStoreProduct).not.toHaveBeenCalled();
+    expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
+  });
+
+  it('rotates the Store transport once after CAPTCHA and retries the same region', async () => {
+    const storeHtml = `
+      <article data-asin="B0FK1V67X5">
+        <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59"></a>
+        <h2>Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</h2>
+        <span class="a-offscreen">£24.99</span>
+      </article>`;
+    const driver = {
+      openStore: vi.fn().mockResolvedValueOnce('<form action="/errors/validateCaptcha"></form>').mockResolvedValueOnce(storeHtml),
+      openStoreProduct: vi.fn(async () => ''),
+      advanceProxyRoute: vi.fn(async () => true),
+    };
+
+    const result = await collectOfficialStore({ requestId: 'request-2', regions: ['amazon_uk'], driver });
+
+    expect(driver.advanceProxyRoute).toHaveBeenCalledOnce();
+    expect(driver.openStore).toHaveBeenCalledTimes(2);
+    expect(result.products).toMatchObject([{ asin: 'B0FK1V67X5', price: { minor: 2499, currency: 'GBP' } }]);
+    expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
+  });
+});

@@ -1,7 +1,5 @@
 import { collectDoll } from './amazon/collect';
-import { isAmazonCaptcha, isAmazonCollectorBlocked } from './amazon/product-page';
-import { safeStoreError } from './amazon/store-error';
-import { officialMonsterHighStoreUrls, parseAmazonStoreLinks, parseOfficialStoreDoll } from './amazon/store';
+import { collectOfficialStore } from './amazon/store-collect';
 import { BrowserCollectorDriver } from './browser';
 import type { CollectorControlMessage, CollectorRequest, CollectorResponse } from './contracts';
 import { SerialQueue } from './queue';
@@ -23,6 +21,7 @@ function waitForResume(requestId: string, region: string): Promise<void> {
 async function run(request: CollectorRequest) {
   const driver = drivers.get(request.dataDir) ?? new BrowserCollectorDriver(request.dataDir);
   drivers.set(request.dataDir, driver);
+  await driver.configureTransport(request.transport);
   const progress = (stage: Parameters<typeof send>[0] extends never ? never : 'queued' | 'searching' | 'checking' | 'captcha_required' | 'completed' | 'failed', region?: typeof request.regions[number]) =>
     send({ type: 'progress', requestId: request.requestId, stage, region });
 
@@ -39,43 +38,13 @@ async function run(request: CollectorRequest) {
 async function runOfficialStore(request: Extract<CollectorControlMessage, { type: 'import-official-store' }>) {
   const driver = drivers.get(request.dataDir) ?? new BrowserCollectorDriver(request.dataDir);
   drivers.set(request.dataDir, driver);
-  const result = { requestId: request.requestId, products: [], regions: {} } as import('./contracts').CollectorOfficialStoreResult;
-  for (const region of request.regions) {
-    send({ type: 'progress', requestId: request.requestId, stage: 'searching', region });
-    try {
-      const storeHtml = await driver.openStore(region, officialMonsterHighStoreUrls[region]);
-      if (isAmazonCollectorBlocked(storeHtml) || isAmazonCaptcha(storeHtml)) {
-        result.regions[region] = {
-          status: 'blocked',
-          total: 0,
-          error: isAmazonCaptcha(storeHtml) ? 'Amazon requested CAPTCHA for Store import' : 'Amazon temporarily blocked Store import',
-        };
-        continue;
-      }
-      const links = parseAmazonStoreLinks(storeHtml, region);
-      send({ type: 'progress', requestId: request.requestId, stage: 'searching', region, processed: 0, total: links.length });
-      for (const [index, link] of links.entries()) {
-        send({ type: 'progress', requestId: request.requestId, stage: 'checking', region, processed: index + 1, total: links.length });
-        const html = await driver.openStoreProduct(region, link.url);
-        if (isAmazonCollectorBlocked(html) || isAmazonCaptcha(html)) {
-          result.regions[region] = {
-            status: 'blocked',
-            total: links.length,
-            error: isAmazonCaptcha(html) ? 'Amazon requested CAPTCHA for Store import' : 'Amazon temporarily blocked Store import',
-          };
-          break;
-        }
-        const doll = parseOfficialStoreDoll(html, region, link.url);
-        if (doll) result.products.push(doll);
-      }
-      if (result.regions[region]?.status === 'blocked') continue;
-      result.regions[region] = { status: 'completed', total: links.length };
-      send({ type: 'progress', requestId: request.requestId, stage: 'completed', region, processed: links.length, total: links.length });
-    } catch (error) {
-      result.regions[region] = { status: 'failed', total: 0, error: safeStoreError(error) };
-    }
-  }
-  return result;
+  await driver.configureTransport(request.transport);
+  return collectOfficialStore({
+    requestId: request.requestId,
+    regions: request.regions,
+    driver,
+    onProgress: (event) => send({ type: 'progress', requestId: request.requestId, ...event }),
+  });
 }
 
 parentPort.on('message', (event) => {

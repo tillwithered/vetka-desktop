@@ -11,6 +11,8 @@ export const channels = {
   dollsFavorite: 'vetka:dolls:favorite',
   settingsGetAll: 'vetka:settings:get-all',
   settingsSet: 'vetka:settings:set',
+  collectorTransportGet: 'vetka:collector-transport:get',
+  collectorTransportSet: 'vetka:collector-transport:set',
   catalogGetScanState: 'vetka:catalog:get-scan-state',
   catalogRefreshNow: 'vetka:catalog:refresh-now',
   catalogScanStateChanged: 'vetka:catalog:scan-state-changed',

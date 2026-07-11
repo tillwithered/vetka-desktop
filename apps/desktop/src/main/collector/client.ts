@@ -10,6 +10,7 @@ import type {
   CollectorResponse,
   CollectorStage,
 } from '@/collector/contracts';
+import type { AmazonProxyTransport } from '@/main/collector/proxy-transport';
 
 export type CollectorProcess = {
   postMessage(message: unknown): void;
@@ -37,6 +38,7 @@ type CollectorClientOptions = {
   fork?: (workerPath: string) => CollectorProcess;
   workerPath: string;
   timeoutMs?: number;
+  getTransport?: () => AmazonProxyTransport;
 };
 
 export class CollectorClient {
@@ -45,10 +47,12 @@ export class CollectorClient {
   private readonly progressListeners = new Set<(event: CollectorProgressEvent) => void>();
   private readonly fork: (workerPath: string) => CollectorProcess;
   private readonly timeoutMs: number;
+  private readonly getTransport: () => AmazonProxyTransport;
 
   constructor(private readonly options: CollectorClientOptions) {
     this.fork = options.fork ?? ((workerPath) => utilityProcess.fork(workerPath) as CollectorProcess);
     this.timeoutMs = options.timeoutMs ?? 90_000;
+    this.getTransport = options.getTransport ?? (() => ({ mode: 'direct', routes: {} }));
   }
 
   start(): CollectorProcess {
@@ -66,6 +70,7 @@ export class CollectorClient {
       regions: [...input.regions],
       type: 'refresh-doll',
       requestId: randomUUID(),
+      transport: this.getTransport(),
     };
     const worker = this.start();
     return new Promise((resolve, reject) => {
@@ -82,7 +87,7 @@ export class CollectorClient {
     input: Omit<CollectorOfficialStoreRequest, 'type' | 'requestId'>,
     onProgress?: (event: CollectorProgressEvent) => void,
   ): Promise<CollectorOfficialStoreResult> {
-    const request: CollectorOfficialStoreRequest = { ...input, regions: [...input.regions], type: 'import-official-store', requestId: randomUUID() };
+    const request: CollectorOfficialStoreRequest = { ...input, regions: [...input.regions], type: 'import-official-store', requestId: randomUUID(), transport: this.getTransport() };
     const worker = this.start();
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { this.pending.delete(request.requestId); reject(new Error('Collector request timed out')); }, this.timeoutMs * 4);

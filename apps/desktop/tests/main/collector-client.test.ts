@@ -50,4 +50,20 @@ describe('CollectorClient', () => {
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ stage: 'checking', processed: 3, total: 10 }));
     client.dispose();
   });
+
+  it('passes the private proxy transport to the worker without exposing it to callers', async () => {
+    const worker = new FakeProcess();
+    const getTransport = vi.fn(() => ({
+      mode: 'proxy' as const,
+      routes: { amazon_uk: [{ server: 'http://uk.example:10000', username: 'violet', password: 'very-secret', label: 'uk.example:10000' }] },
+    }));
+    const client = new CollectorClient({ fork: () => worker, workerPath: 'worker.cjs', getTransport });
+    const pending = client.importOfficialStore({ dataDir: 'C:/data', regions: ['amazon_uk'] });
+    const sent = worker.postMessage.mock.calls[0][0];
+    worker.emit('message', { type: 'official-store-result', requestId: sent.requestId, result: { requestId: sent.requestId, products: [], regions: {} } });
+
+    await expect(pending).resolves.toMatchObject({ requestId: sent.requestId });
+    expect(getTransport).toHaveBeenCalledOnce();
+    expect(sent).toMatchObject({ transport: { mode: 'proxy', routes: { amazon_uk: [expect.objectContaining({ server: 'http://uk.example:10000' })] } } });
+  });
 });

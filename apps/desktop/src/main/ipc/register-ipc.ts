@@ -2,6 +2,7 @@ import { z, ZodError, type ZodType } from 'zod';
 
 import type { DollRepository } from '@/main/dolls/repository';
 import type { SettingsRepository } from '@/main/settings/repository';
+import type { ProxyTransportRepository } from '@/main/settings/proxy-transport-repository';
 import type { PriceRepository } from '@/main/prices/repository';
 import type { PriceService } from '@/main/prices/service';
 import type { OrderRepository } from '@/main/orders/repository';
@@ -14,6 +15,7 @@ import {
   dollInputSchema,
   dollListFilterSchema,
   dollUpdateSchema,
+  amazonProxyTransportInputSchema,
   type ApiResult,
 } from '@/shared/contracts';
 
@@ -34,6 +36,7 @@ type Dependencies = {
   updates?: Pick<UpdateService, 'getState' | 'check' | 'restartAndInstall'>;
   scanService?: Pick<CatalogScanService, 'getState' | 'runNow'>;
   refreshRates?: () => Promise<unknown>;
+  proxyTransport?: ProxyTransportRepository;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -155,6 +158,14 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
     const saved = dependencies.settings.set(key, value);
     if (key === 'exchangeRatesMode' && value === 'auto') await dependencies.refreshRates?.();
     return saved;
+  }));
+  registrar.handle(channels.collectorTransportGet, () => {
+    if (!dependencies.proxyTransport) return failure(new Error('Collector transport is unavailable'));
+    return success(dependencies.proxyTransport.getPublic());
+  });
+  registrar.handle(channels.collectorTransportSet, validated(amazonProxyTransportInputSchema, (input) => {
+    if (!dependencies.proxyTransport) throw new Error('Collector transport is unavailable');
+    return dependencies.proxyTransport.replace(input);
   }));
   registrar.handle(channels.amazonAddListing, validated(listingSchema, ({ dollId, url }) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');

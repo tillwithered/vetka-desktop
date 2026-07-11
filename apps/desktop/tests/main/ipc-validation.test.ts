@@ -88,4 +88,21 @@ describe('validated IPC', () => {
     await expect(handlers.get(channels.amazonRefreshDoll)?.({}, { dollId: doll.id, regions: ['amazon_us'] }))
       .resolves.toEqual({ ok: false, error: { code: 'INTERNAL_ERROR', message: 'Collector worker exited' } });
   });
+
+  it('uses a dedicated redacted IPC surface for collector proxy routes', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const transport = {
+      getPublic: vi.fn(() => ({ mode: 'proxy', regions: { amazon_uk: { configured: true, routeCount: 1, labels: ['uk.example:10000'] } } })),
+      replace: vi.fn(() => ({ mode: 'proxy', regions: { amazon_uk: { configured: true, routeCount: 1, labels: ['uk.example:10000'] } } })),
+    };
+    registerIpcHandlers({ handle: (channel, handler) => handlers.set(channel, handler) }, {
+      dolls: new DollRepository(db), settings: new SettingsRepository(db), version: () => '1.2.3', proxyTransport: transport as never,
+    });
+
+    expect(handlers.get(channels.collectorTransportGet)?.({})).toMatchObject({ ok: true, data: { mode: 'proxy' } });
+    await expect(handlers.get(channels.collectorTransportSet)?.({}, {
+      mode: 'proxy', routes: { amazon_uk: ['http://violet:very-secret@uk.example:10000'] },
+    })).resolves.toMatchObject({ ok: true, data: { regions: { amazon_uk: { labels: ['uk.example:10000'] } } } });
+    expect(JSON.stringify(await handlers.get(channels.collectorTransportGet)?.({}))).not.toContain('very-secret');
+  });
 });
