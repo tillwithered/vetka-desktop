@@ -54,6 +54,15 @@ describe('parseAmazonProductPage', () => {
     });
   });
 
+  it('keeps the currency shown on a product page even when it differs from the marketplace default', () => {
+    const html = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span><div id="corePrice_feature_div"><span class="a-offscreen">28,11 GBP</span></div><div id="availability">Auf Lager</div><div id="condition">Neu</div>';
+
+    expect(parseAmazonProductPage(html, { region: 'amazon_de', expectedAsin: 'B0FK1V67X5' })).toMatchObject({
+      status: 'verified',
+      regularPrice: { minor: 2811, currency: 'GBP' },
+    });
+  });
+
   it('reads the current Amazon accessible price when the legacy offscreen span is blank', () => {
     const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Catty Noir Doll HXH76</span><div id="corePrice_feature_div"><span class="a-offscreen"></span><span class="apex-pricetopay-accessibility-label">€34.99</span></div><div id="availability">In stock</div><div id="condition">New</div>';
 

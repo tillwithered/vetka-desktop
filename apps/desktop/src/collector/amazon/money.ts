@@ -6,11 +6,20 @@ function numericToMinor(raw: string, currency: AmazonCurrency): number | null {
   let normalized = raw.replace(/[\s\u00a0\u202f]/g, '');
   if (!normalized) return null;
 
-  if (currency === 'EUR') {
-    if (normalized.includes(',')) normalized = normalized.replace(/\./g, '').replace(',', '.');
-    else if ((normalized.match(/\./g) ?? []).length > 1) normalized = normalized.replace(/\./g, '');
+  const lastComma = normalized.lastIndexOf(',');
+  const lastDot = normalized.lastIndexOf('.');
+  const decimalSeparator = lastComma >= 0 && lastDot >= 0
+    ? (lastComma > lastDot ? ',' : '.')
+    : lastComma >= 0 && normalized.length - lastComma - 1 <= 2
+      ? ','
+      : lastDot >= 0 && normalized.length - lastDot - 1 <= 2
+        ? '.'
+        : null;
+  if (decimalSeparator) {
+    const thousandsSeparator = decimalSeparator === ',' ? /\./g : /,/g;
+    normalized = normalized.replace(thousandsSeparator, '').replace(decimalSeparator, '.');
   } else {
-    normalized = normalized.replace(/,/g, '');
+    normalized = normalized.replace(/[.,]/g, '');
   }
 
   if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;

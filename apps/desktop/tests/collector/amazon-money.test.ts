@@ -17,4 +17,8 @@ describe('parseLocalizedMoney', () => {
   it('rejects two different amounts', () => {
     expect(parseLocalizedMoney('$29.99 or $31.99', 'USD')).toBeNull();
   });
+
+  it('parses a comma decimal amount for a non-EUR currency rendered by a localized page', () => {
+    expect(parseLocalizedMoney('28,11 GBP', 'GBP')).toEqual({ currency: 'GBP', minor: 2811 });
+  });
 });
