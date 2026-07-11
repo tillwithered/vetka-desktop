@@ -32,6 +32,33 @@ describe('CatalogScanService', () => {
     expect(officialStoreImport.run).not.toHaveBeenCalled();
   });
 
+  it('limits Store scans to configured proxy regions', async () => {
+    const officialStoreImport = { run: vi.fn(async () => ({ errors: [] })) };
+    const service = new CatalogScanService({
+      officialStoreImport,
+      regions: () => ['amazon_uk'],
+      schedule: vi.fn(), clearSchedule: vi.fn(), now: () => new Date('2026-07-10T10:00:00.000Z'),
+    });
+
+    await service.runNow();
+
+    expect(officialStoreImport.run).toHaveBeenCalledWith(['amazon_uk'], expect.any(Function));
+  });
+
+  it('does not start a Store import with an empty proxy region selection', async () => {
+    const officialStoreImport = { run: vi.fn(async () => ({ errors: [] })) };
+    const service = new CatalogScanService({
+      officialStoreImport,
+      regions: () => [],
+      schedule: vi.fn(), clearSchedule: vi.fn(), now: () => new Date('2026-07-10T10:00:00.000Z'),
+    });
+
+    await service.runNow();
+
+    expect(officialStoreImport.run).not.toHaveBeenCalled();
+    expect(service.getState()).toMatchObject({ lastError: 'No Amazon proxy regions are configured' });
+  });
+
   it('returns the in-progress state instead of overlapping and clears its timer on dispose', async () => {
     let resolveImport: (() => void) | undefined;
     const first = new Promise<{ errors: string[] }>((resolve) => { resolveImport = () => resolve({ errors: [] }); });

@@ -2,12 +2,26 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ProxyRouteSelector,
+  regionsForCatalogScan,
   parseAmazonProxyTransport,
   parseProxyRoute,
   publicProxyTransportState,
 } from '@/main/collector/proxy-transport';
 
 describe('Amazon proxy transport', () => {
+  it('uses only configured regions for a proxied Store scan', () => {
+    const transport = parseAmazonProxyTransport({
+      mode: 'proxy',
+      routes: { amazon_uk: ['http://user:secret@uk.example:10000'] },
+    });
+
+    expect(regionsForCatalogScan(transport)).toEqual(['amazon_uk']);
+  });
+
+  it('does not fall back to the direct connection when proxy mode has no routes', () => {
+    expect(regionsForCatalogScan(parseAmazonProxyTransport({ mode: 'proxy' }))).toEqual([]);
+  });
+
   it('splits an authenticated proxy URL into a Playwright route without exposing credentials in its label', () => {
     expect(parseProxyRoute('http://violet:very-secret@gateway.example:10000')).toEqual({
       server: 'http://gateway.example:10000', username: 'violet', password: 'very-secret', label: 'gateway.example:10000',

@@ -35,7 +35,7 @@ export function CatalogScanStatus() {
     <div className="min-w-0 space-y-1">
       {state?.phase === 'official_store' && <p className="text-xs text-muted-foreground">Monster High Store {state.region?.replace('amazon_', '').toUpperCase() ?? 'все регионы'}</p>}
       <div className="flex items-center gap-2"><span className="text-sm font-medium">Автопроверка Amazon</span><Badge variant={running ? 'default' : 'secondary'}>{running ? `Проверяется: ${state?.processed ?? 0} из ${state?.total ?? 0}` : 'По расписанию'}</Badge></div>
-      <p className="text-xs text-muted-foreground">{running ? 'Сканирование идёт по SKU в US, UK, DE и ES.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
+      <p className="text-xs text-muted-foreground">{running ? 'Сканируются официальные Monster High Store по активным регионам.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
       {state?.lastError && <p role="alert" className="text-xs text-destructive">{state.lastError}</p>}
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>

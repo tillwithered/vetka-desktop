@@ -42,4 +42,19 @@ describe('official Store collection', () => {
     expect(result.products).toMatchObject([{ asin: 'B0FK1V67X5', price: { minor: 2499, currency: 'GBP' } }]);
     expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
   });
+
+  it('reports an unusable Store response instead of completing with zero collectible cards', async () => {
+    const driver = {
+      openStore: vi.fn(async () => '<html><body><h1>Monster High Store</h1></body></html>'),
+      openStoreProduct: vi.fn(async () => ''),
+    };
+
+    const result = await collectOfficialStore({ requestId: 'request-empty', regions: ['amazon_uk'], driver });
+
+    expect(result.regions.amazon_uk).toEqual({
+      status: 'failed',
+      total: 0,
+      error: 'Store page did not contain product links',
+    });
+  });
 });

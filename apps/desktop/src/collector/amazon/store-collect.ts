@@ -3,6 +3,7 @@ import type { CollectorOfficialStoreResult } from '../contracts';
 
 import { isAmazonCaptcha, isAmazonCollectorBlocked } from './product-page';
 import { officialMonsterHighStoreUrls, parseAmazonStoreCards, parseAmazonStoreLinks, parseOfficialStoreDoll } from './store';
+import { safeStoreError } from './store-error';
 
 export type OfficialStoreDriver = {
   openStore(region: AmazonRegion, url: string): Promise<string>;
@@ -46,6 +47,10 @@ export async function collectOfficialStore(input: {
         }
 
         const links = parseAmazonStoreLinks(storeHtml, region);
+        if (links.length === 0) {
+          result.regions[region] = { status: 'failed', total: 0, error: 'Store page did not contain product links' };
+          break;
+        }
         const cards = parseAmazonStoreCards(storeHtml, region);
         const cardAsins = new Set(cards.map((card) => card.asin));
         const regionProducts = [...cards];
@@ -77,8 +82,8 @@ export async function collectOfficialStore(input: {
         input.onProgress?.({ stage: 'completed', region, processed: links.length, total: links.length });
         completed = true;
       }
-    } catch {
-      result.regions[region] = { status: 'failed', total: 0, error: 'Store import failed' };
+    } catch (error) {
+      result.regions[region] = { status: 'failed', total: 0, error: safeStoreError(error) };
     }
   }
 

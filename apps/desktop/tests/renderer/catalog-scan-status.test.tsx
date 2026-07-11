@@ -22,4 +22,11 @@ describe('CatalogScanStatus', () => {
     render(<CatalogScanStatus />);
     expect(await screen.findByText('Monster High Store UK')).toBeVisible();
   });
+
+  it('describes a Store scan without claiming that every Amazon region is being scanned', async () => {
+    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'official_store', region: 'amazon_uk', startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 1, total: 9 } });
+    render(<CatalogScanStatus />);
+
+    expect((await screen.findAllByText('Сканируются официальные Monster High Store по активным регионам.')).at(-1)).toBeVisible();
+  });
 });

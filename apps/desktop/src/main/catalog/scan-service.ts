@@ -17,6 +17,7 @@ export type CatalogScanState = {
 
 type Dependencies = {
   officialStoreImport: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
+  regions?: () => readonly AmazonRegion[];
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
   now?: () => Date;
@@ -69,10 +70,15 @@ export class CatalogScanService {
     this.setState({ status: 'running', phase: 'official_store', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
     let lastError: string | null = null;
     try {
-      const result = await this.dependencies.officialStoreImport.run(storeRegions, (event) => {
-        this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
-      });
-      lastError = result.errors?.join(' · ') ?? null;
+      const regions = [...(this.dependencies.regions?.() ?? storeRegions)];
+      if (regions.length === 0) {
+        lastError = 'No Amazon proxy regions are configured';
+      } else {
+        const result = await this.dependencies.officialStoreImport.run(regions, (event) => {
+          this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
+        });
+        lastError = result.errors?.join(' · ') ?? null;
+      }
     } catch {
       lastError = 'Official Store import failed';
     }

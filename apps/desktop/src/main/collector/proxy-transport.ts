@@ -61,6 +61,17 @@ export function publicProxyTransportState(transport: AmazonProxyTransport): Publ
   };
 }
 
+/**
+ * A proxy-mode scan must never silently fall back to the local IP for regions
+ * without a route. That makes a partial proxy setup look like an Amazon
+ * collector failure and can burn the operator's direct IP.
+ */
+export function regionsForCatalogScan(transport: AmazonProxyTransport): AmazonRegion[] {
+  if (transport.mode !== 'proxy') return [...amazonRegions];
+  const configured = amazonRegions.filter((region) => (transport.routes[region] ?? []).length > 0);
+  return configured;
+}
+
 export class ProxyRouteSelector {
   private readonly indexes = new Map<AmazonRegion, number>();
 

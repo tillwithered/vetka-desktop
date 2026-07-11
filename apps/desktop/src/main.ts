@@ -11,6 +11,7 @@ import { registerIpcHandlers } from './main/ipc/register-ipc';
 import { SettingsRepository } from './main/settings/repository';
 import { ProxyTransportRepository } from './main/settings/proxy-transport-repository';
 import { CollectorClient } from './main/collector/client';
+import { regionsForCatalogScan } from './main/collector/proxy-transport';
 import { PriceRepository } from './main/prices/repository';
 import { PriceService } from './main/prices/service';
 import { OrderRepository } from './main/orders/repository';
@@ -136,6 +137,7 @@ app.whenReady().then(async () => {
   });
   catalogScan = new CatalogScanService({
     officialStoreImport,
+    regions: () => regionsForCatalogScan(proxyTransport.getResolved()),
     onStateChanged: (state) => {
       settings.set('catalogScanState', state);
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
