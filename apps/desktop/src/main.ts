@@ -133,8 +133,6 @@ app.whenReady().then(async () => {
     dataDir: app.getPath('userData'),
   });
   catalogScan = new CatalogScanService({
-    catalog,
-    priceService,
     officialStoreImport,
     onStateChanged: (state) => {
       settings.set('catalogScanState', state);

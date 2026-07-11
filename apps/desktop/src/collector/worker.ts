@@ -1,5 +1,6 @@
 import { collectDoll } from './amazon/collect';
 import { isAmazonCollectorBlocked } from './amazon/product-page';
+import { safeStoreError } from './amazon/store-error';
 import { officialMonsterHighStoreUrls, parseAmazonStoreLinks, parseOfficialStoreDoll } from './amazon/store';
 import { BrowserCollectorDriver } from './browser';
 import type { CollectorControlMessage, CollectorRequest, CollectorResponse } from './contracts';
@@ -59,7 +60,7 @@ async function runOfficialStore(request: Extract<CollectorControlMessage, { type
       result.regions[region] = { status: 'completed', total: links.length };
       send({ type: 'progress', requestId: request.requestId, stage: 'completed', region, processed: links.length, total: links.length });
     } catch (error) {
-      result.regions[region] = { status: 'failed', total: 0, error: error instanceof Error ? error.message : 'Store import failed' };
+      result.regions[region] = { status: 'failed', total: 0, error: safeStoreError(error) };
     }
   }
   return result;

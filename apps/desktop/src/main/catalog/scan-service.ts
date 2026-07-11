@@ -1,8 +1,5 @@
 import type { AmazonRegion } from '@/shared/contracts';
 
-import type { CatalogEntry, CatalogRepository } from './repository';
-
-const regions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es'];
 const storeRegions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'];
 const intervalMs = 120 * 60 * 1000;
 
@@ -19,9 +16,7 @@ export type CatalogScanState = {
 };
 
 type Dependencies = {
-  catalog: Pick<CatalogRepository, 'listActive'>;
-  priceService: { refreshCatalogEntry(entry: CatalogEntry, regions: AmazonRegion[]): Promise<unknown> };
-  officialStoreImport?: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
+  officialStoreImport: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
   now?: () => Date;
@@ -32,7 +27,7 @@ export class CatalogScanService {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running: Promise<CatalogScanState> | null = null;
   private disposed = false;
-  private state: CatalogScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null };
+  private state: CatalogScanState = { status: 'idle', phase: null, region: null, startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null };
   private readonly schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   private readonly clearSchedule: (timer: ReturnType<typeof setTimeout>) => void;
   private readonly now: () => Date;
@@ -43,21 +38,20 @@ export class CatalogScanService {
     this.now = dependencies.now ?? (() => new Date());
   }
 
-  start(): void {
-    void this.runNow();
-  }
+  /** Store polling starts only after the operator has requested a manual refresh. */
+  start(): void {}
 
   getState(): CatalogScanState {
     return { ...this.state };
   }
 
-  async runNow(options: { includeOfficialStore?: boolean } = {}): Promise<CatalogScanState> {
+  async runNow(): Promise<CatalogScanState> {
     if (this.running) return this.getState();
     if (this.timer) {
       this.clearSchedule(this.timer);
       this.timer = null;
     }
-    this.running = this.run(options.includeOfficialStore === true);
+    this.running = this.runStoreImport();
     try {
       return await this.running;
     } finally {
@@ -71,33 +65,20 @@ export class CatalogScanService {
     this.timer = null;
   }
 
-  private async run(includeOfficialStore: boolean): Promise<CatalogScanState> {
-    let importError: string | null = null;
-    if (includeOfficialStore) {
-      this.setState({ status: 'running', phase: 'official_store', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
-      try {
-        const imported = await this.dependencies.officialStoreImport?.run(storeRegions, (event) => {
-          this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
-        });
-        importError = imported?.errors?.join(' · ') ?? null;
-      } catch (error) {
-        importError = error instanceof Error ? error.message.slice(0, 240) : 'Official Store import failed';
-      }
-    }
-    const entries = this.dependencies.catalog.listActive();
-    this.setState({ status: 'running', phase: 'catalog_scan', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: entries.length, lastError: importError });
-    for (const entry of entries) {
-      try {
-        await this.dependencies.priceService.refreshCatalogEntry(entry, regions);
-      } catch (error) {
-        const message = error instanceof Error ? error.message.replace(/\s+/g, ' ').trim() : 'Не удалось проверить Amazon';
-        this.setState({ ...this.state, lastError: message.slice(0, 240) || 'Не удалось проверить Amazon' });
-      }
-      this.setState({ ...this.state, processed: this.state.processed + 1 });
+  private async runStoreImport(): Promise<CatalogScanState> {
+    this.setState({ status: 'running', phase: 'official_store', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
+    let lastError: string | null = null;
+    try {
+      const result = await this.dependencies.officialStoreImport.run(storeRegions, (event) => {
+        this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
+      });
+      lastError = result.errors?.join(' · ') ?? null;
+    } catch {
+      lastError = 'Official Store import failed';
     }
     const completedAt = this.now().toISOString();
     const nextRunAt = new Date(this.now().getTime() + intervalMs).toISOString();
-    this.setState({ ...this.state, status: 'idle', completedAt, nextRunAt });
+    this.setState({ ...this.state, status: 'idle', phase: 'official_store', completedAt, nextRunAt, lastError });
     if (!this.disposed) this.timer = this.schedule(() => { void this.runNow(); }, intervalMs);
     return this.getState();
   }
