@@ -31,6 +31,7 @@ export type CollectorRequest = {
   doll: CollectorDollIdentity;
   knownListings: KnownAmazonListing[];
   regions: AmazonRegion[];
+  knownAsinsOnly?: boolean;
   catalogRules?: CatalogOfferRules;
   transport?: AmazonProxyTransport;
 };

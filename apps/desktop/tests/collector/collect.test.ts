@@ -40,6 +40,23 @@ describe('collectDoll', () => {
     expect(result.regions.amazon_uk).toMatchObject({ status: 'verified', asin: 'B0FK1V67X5', regularPrice: { minor: 2499, currency: 'GBP' } });
   });
 
+  it('does not search when ASIN-first refresh has no confirmed listing', async () => {
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => ''),
+      search: vi.fn(async () => '<div data-asin="B0HUNTER00"></div>'),
+    };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'asin-only-empty', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam', mattelSku: 'JHK59' },
+      knownListings: [], regions: ['amazon_uk'], knownAsinsOnly: true,
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam', 'Creeproduction'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(driver.search).not.toHaveBeenCalled();
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'no_price', asin: null });
+  });
+
   it('returns blocked when a direct regional ASIN probe receives a transient Amazon response', async () => {
     const driver: CollectorDriver = { openProduct: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'), search: vi.fn(async () => '') };
 

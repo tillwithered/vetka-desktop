@@ -56,6 +56,15 @@ export async function collectDoll(
     }
     if (accepted) continue;
 
+    if (request.knownAsinsOnly) {
+      result.regions[region] = {
+        status: 'no_price', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
+        couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null,
+        region, url: null, reviewCandidates: [],
+      };
+      continue;
+    }
+
     const catalogTerms = request.catalogRules
       ? (request.catalogRules.searchQuery
         ? [request.catalogRules.searchQuery, request.catalogRules.mattelSku, request.catalogRules.requiredTerms.join(' '), request.doll.name, request.catalogRules.upcEan]
