@@ -69,7 +69,10 @@ export function hasProxyRoute(transport: AmazonProxyTransport, region: AmazonReg
  * Catalog checks begin directly. A configured proxy is a recovery route, not
  * a gate that hides a region from its regular daily check.
  */
-export function regionsForCatalogScan(_transport: AmazonProxyTransport): AmazonRegion[] {
+export function regionsForCatalogScan(transport: AmazonProxyTransport): AmazonRegion[] {
+  // Keep the argument so callers can remain transport-agnostic while direct
+  // checks intentionally cover every marketplace.
+  void transport;
   return [...amazonRegions];
 }
 

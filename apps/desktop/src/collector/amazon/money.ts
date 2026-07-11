@@ -2,7 +2,7 @@ import type { AmazonCurrency } from './regions';
 
 export type ParsedMoney = { minor: number; currency: AmazonCurrency };
 
-function numericToMinor(raw: string, currency: AmazonCurrency): number | null {
+function numericToMinor(raw: string): number | null {
   let normalized = raw.replace(/[\s\u00a0\u202f]/g, '');
   if (!normalized) return null;
 
@@ -40,7 +40,7 @@ export function parseLocalizedMoney(text: string, currency: AmazonCurrency): Par
   const before = new RegExp(`${marker}\\s*([0-9][0-9.,\\s\\u00a0\\u202f]*)`, 'gi');
   const after = new RegExp(`([0-9][0-9.,\\s\\u00a0\\u202f]*)\\s*${marker}`, 'gi');
   const amountsFor = (expression: RegExp) => [...withoutUnitPrices.matchAll(expression)]
-    .map((match) => numericToMinor(match[1].trim(), currency))
+    .map((match) => numericToMinor(match[1].trim()))
     .filter((minor): minor is number => minor !== null);
   const beforeAmounts = [...new Set(amountsFor(before))];
   // Store-card text can concatenate a Mattel SKU and a price (for example,
@@ -53,6 +53,6 @@ export function parseLocalizedMoney(text: string, currency: AmazonCurrency): Par
 
 export function parseStructuredMoney(value: unknown, currency: AmazonCurrency): ParsedMoney | null {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
-  const minor = numericToMinor(String(value), currency);
+  const minor = numericToMinor(String(value));
   return minor === null ? null : { minor, currency };
 }
