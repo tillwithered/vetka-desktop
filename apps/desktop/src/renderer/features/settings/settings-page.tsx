@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon, SaveIcon } from 'lucide-react';
+import { AlertTriangleIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FormSection } from '@/components/patterns/form-section';
@@ -13,14 +13,35 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { unwrap } from '@/renderer/lib/ipc-query';
+import type { UpdateState } from '@/shared/contracts';
 
 type Rates = Record<string, { rateMicros: number; updatedAt?: string; source?: 'nbk' | 'manual' }>;
 type StoredSettings = { exchangeRates?: Rates; exchangeRatesMode?: 'auto' | 'manual'; deliveryDefaults?: { weightGrams: number; tariffPerKg: number } };
+
+function updateCopy(update: UpdateState): string {
+  if (update.status === 'checking') return 'Проверяем наличие новой версии.';
+  if (update.status === 'available') return update.version ? `Версия ${update.version} скачивается.` : 'Новая версия скачивается.';
+  if (update.status === 'downloaded') return update.version ? `Версия ${update.version} готова к установке.` : 'Обновление готово к установке.';
+  if (update.status === 'error') return 'Не удалось проверить обновления. Попробуйте позже.';
+  return 'Приложение проверяет обновления автоматически раз в час.';
+}
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings'], queryFn: async () => unwrap(await window.vetka.settings.getAll()) as StoredSettings });
   const [modeOverride, setModeOverride] = useState<'auto' | 'manual' | null>(null);
+  const [version, setVersion] = useState('');
+  const [update, setUpdate] = useState<UpdateState>({ status: 'idle' });
+
+  useEffect(() => {
+    let active = true;
+    const apply = (next: UpdateState) => { if (active) setUpdate(next); };
+    const unsubscribe = window.vetka.updates.onStateChanged(apply);
+    void window.vetka.health().then((result) => { if (active && result.ok) setVersion(result.data.version); });
+    void window.vetka.updates.getState().then((result) => { if (result.ok) apply(result.data); });
+    return () => { active = false; unsubscribe(); };
+  }, []);
+
   if (settings.isLoading) return <div className="space-y-4 p-6"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 max-w-4xl" /></div>;
 
   const rates = settings.data?.exchangeRates ?? {};
@@ -52,9 +73,20 @@ export function SettingsPage() {
     }
   }
 
+  async function checkUpdates() {
+    const result = await window.vetka.updates.check();
+    if (result.ok) setUpdate(result.data);
+    else setUpdate({ status: 'error', message: 'safe' });
+  }
+
+  async function restartAndInstall() {
+    const result = await window.vetka.updates.restartAndInstall();
+    if (!result.ok) toast.error('Не удалось перезапустить приложение');
+  }
+
   return (
     <section className="flex flex-1 flex-col gap-6 p-6">
-      <PageHeader title="Настройки" description="Курсы, доставка и локальные данные" />
+      <PageHeader title="Настройки" description="Курсы, доставка и параметры приложения" />
       <form className="max-w-4xl space-y-8" onSubmit={save}>
         <FormSection title="Курсы валют" description="Курс фиксируется в момент сохранения цены и не меняет уже созданные заказы.">
           <div className="mb-4 flex items-center gap-3">
@@ -76,6 +108,15 @@ export function SettingsPage() {
             <Field><FieldLabel htmlFor="default-weight">Вес по умолчанию, г</FieldLabel><Input id="default-weight" name="weight" type="number" min="1" required defaultValue={delivery.weightGrams} /></Field>
             <Field><FieldLabel htmlFor="default-tariff">Тариф за кг</FieldLabel><Input id="default-tariff" name="tariff" type="number" min="0" step="0.01" required defaultValue={delivery.tariffPerKg} /></Field>
           </FieldGroup>
+        </FormSection>
+        <FormSection title="Приложение" description="Проверка и установка новых версий.">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1"><p className="text-sm font-medium">{version ? `Vetka Desktop v${version}` : 'Vetka Desktop'}</p><p className="text-xs text-muted-foreground">{updateCopy(update)}</p></div>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={update.status === 'checking'} onClick={() => void checkUpdates()}><RefreshCwIcon className={update.status === 'checking' ? 'animate-spin' : ''} />Проверить обновления</Button>
+              {update.status === 'downloaded' ? <Button type="button" size="sm" onClick={() => void restartAndInstall()}><RefreshCwIcon />Обновить</Button> : null}
+            </div>
+          </div>
         </FormSection>
         <Button type="submit"><SaveIcon />Сохранить настройки</Button>
       </form>
