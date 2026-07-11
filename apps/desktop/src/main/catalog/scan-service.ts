@@ -1,11 +1,12 @@
 import type { AmazonRegion } from '@/shared/contracts';
 
-const storeRegions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'];
-const intervalMs = 120 * 60 * 1000;
+const catalogRegions: AmazonRegion[] = ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'];
+export const DAILY_PRICE_CHECK_MS = 24 * 60 * 60 * 1000;
+export const OVERDUE_PRICE_CHECK_DELAY_MS = 60 * 1000;
 
 export type CatalogScanState = {
   status: 'idle' | 'running';
-  phase?: 'official_store' | 'catalog_scan' | null;
+  phase?: 'catalog_scan' | null;
   region?: AmazonRegion | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -16,32 +17,46 @@ export type CatalogScanState = {
 };
 
 type Dependencies = {
-  officialStoreImport: { run(regions: readonly AmazonRegion[], onProgress?: (event: { region: AmazonRegion; processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
-  asinPriceRefresh?: { run(regions: readonly AmazonRegion[], onProgress?: (event: { processed: number; total: number }) => void): Promise<{ errors?: string[] }> };
+  asinPriceRefresh: {
+    run(regions: readonly AmazonRegion[], onProgress?: (event: { processed: number; total: number }) => void): Promise<{ errors?: string[] }>;
+  };
   regions?: () => readonly AmazonRegion[];
+  initialState?: CatalogScanState;
   schedule?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearSchedule?: (timer: ReturnType<typeof setTimeout>) => void;
   now?: () => Date;
   onStateChanged?: (state: CatalogScanState) => void;
 };
 
+const idleState = (): CatalogScanState => ({
+  status: 'idle', phase: null, region: null, startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null,
+});
+
 export class CatalogScanService {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running: Promise<CatalogScanState> | null = null;
   private disposed = false;
-  private state: CatalogScanState = { status: 'idle', phase: null, region: null, startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null };
+  private state: CatalogScanState;
   private readonly schedule: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   private readonly clearSchedule: (timer: ReturnType<typeof setTimeout>) => void;
   private readonly now: () => Date;
 
   constructor(private readonly dependencies: Dependencies) {
+    this.state = { ...idleState(), ...(dependencies.initialState ?? {}) };
     this.schedule = dependencies.schedule ?? ((callback, delay) => setTimeout(callback, delay));
     this.clearSchedule = dependencies.clearSchedule ?? ((timer) => clearTimeout(timer));
     this.now = dependencies.now ?? (() => new Date());
   }
 
-  /** Store polling starts only after the operator has requested a manual refresh. */
-  start(): void {}
+  /** A fresh app waits a day; an overdue daily check is deferred once after startup. */
+  start(): void {
+    if (this.disposed || this.timer || this.running) return;
+    const nowMs = this.now().getTime();
+    const completedMs = this.state.completedAt ? new Date(this.state.completedAt).getTime() : Number.NaN;
+    const dueMs = Number.isFinite(completedMs) ? completedMs + DAILY_PRICE_CHECK_MS : nowMs + DAILY_PRICE_CHECK_MS;
+    const delayMs = dueMs <= nowMs ? OVERDUE_PRICE_CHECK_DELAY_MS : dueMs - nowMs;
+    this.scheduleNext(delayMs);
+  }
 
   getState(): CatalogScanState {
     return { ...this.state };
@@ -49,11 +64,8 @@ export class CatalogScanService {
 
   async runNow(): Promise<CatalogScanState> {
     if (this.running) return this.getState();
-    if (this.timer) {
-      this.clearSchedule(this.timer);
-      this.timer = null;
-    }
-    this.running = this.runStoreImport();
+    this.clearTimer();
+    this.running = this.runPriceRefresh();
     try {
       return await this.running;
     } finally {
@@ -63,41 +75,45 @@ export class CatalogScanService {
 
   dispose(): void {
     this.disposed = true;
-    if (this.timer) this.clearSchedule(this.timer);
-    this.timer = null;
+    this.clearTimer();
   }
 
-  private async runStoreImport(): Promise<CatalogScanState> {
-    this.setState({ status: 'running', phase: 'official_store', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
+  private async runPriceRefresh(): Promise<CatalogScanState> {
+    this.setState({ ...this.state, status: 'running', phase: 'catalog_scan', region: null, startedAt: this.now().toISOString(), completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null });
     let lastError: string | null = null;
     try {
-      const regions = [...(this.dependencies.regions?.() ?? storeRegions)];
+      const regions = [...(this.dependencies.regions?.() ?? catalogRegions)];
       if (regions.length === 0) {
-        lastError = 'No Amazon proxy regions are configured';
+        lastError = 'No Amazon regions are configured';
       } else {
-        const result = await this.dependencies.officialStoreImport.run(regions, (event) => {
-          this.setState({ ...this.state, region: event.region, processed: event.processed, total: event.total });
+        const result = await this.dependencies.asinPriceRefresh.run(regions, (event) => {
+          this.setState({ ...this.state, processed: event.processed, total: event.total });
         });
-        const errors = [...(result.errors ?? [])];
-        if (this.dependencies.asinPriceRefresh) {
-          this.setState({ ...this.state, phase: 'catalog_scan', region: null, processed: 0, total: 0 });
-          const priceResult = await this.dependencies.asinPriceRefresh.run(regions, (event) => {
-            this.setState({ ...this.state, phase: 'catalog_scan', region: null, processed: event.processed, total: event.total });
-          });
-          errors.push(...(priceResult.errors ?? []));
-        }
-        result.errors = errors;
-        lastError = result.errors?.join(' · ') ?? null;
+        const errors = result.errors ?? [];
+        lastError = errors.length > 0 ? errors.join(' · ') : null;
       }
-      if (!lastError) lastError = null;
     } catch {
-      lastError = 'Official Store import failed';
+      lastError = 'Catalog price refresh failed';
     }
     const completedAt = this.now().toISOString();
-    const nextRunAt = new Date(this.now().getTime() + intervalMs).toISOString();
-    this.setState({ ...this.state, status: 'idle', phase: this.state.phase, completedAt, nextRunAt, lastError });
-    if (!this.disposed) this.timer = this.schedule(() => { void this.runNow(); }, intervalMs);
+    this.setState({ ...this.state, status: 'idle', completedAt, nextRunAt: new Date(this.now().getTime() + DAILY_PRICE_CHECK_MS).toISOString(), lastError });
+    if (!this.disposed) this.scheduleNext(DAILY_PRICE_CHECK_MS);
     return this.getState();
+  }
+
+  private scheduleNext(delayMs: number): void {
+    this.clearTimer();
+    this.setState({ ...this.state, nextRunAt: new Date(this.now().getTime() + delayMs).toISOString() });
+    this.timer = this.schedule(() => {
+      this.timer = null;
+      void this.runNow();
+    }, delayMs);
+  }
+
+  private clearTimer(): void {
+    if (!this.timer) return;
+    this.clearSchedule(this.timer);
+    this.timer = null;
   }
 
   private setState(state: CatalogScanState): void {

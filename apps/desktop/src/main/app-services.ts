@@ -7,4 +7,9 @@ export function startBackgroundServices(dependencies: {
   } catch {
     // Updating must never prevent the local workspace from opening.
   }
+  try {
+    dependencies.scan?.start();
+  } catch {
+    // A deferred local price check must never prevent the workspace from opening.
+  }
 }

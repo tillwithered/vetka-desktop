@@ -23,12 +23,12 @@ import { UpdateService } from './main/updates/service';
 import { CatalogRepository } from './main/catalog/repository';
 import { monsterHighSkuCatalog } from './main/catalog/seed';
 import { CatalogScanService } from './main/catalog/scan-service';
-import { OfficialStoreImportService } from './main/catalog/official-store-import-service';
 import { AsinPriceRefreshService } from './main/catalog/asin-price-refresh-service';
 import { seedVerifiedAmazonListings } from './main/catalog/listing-seed';
 import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
 import { acquireSingleInstanceLock } from './main/single-instance';
+import type { CatalogScanState } from './shared/contracts';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
@@ -130,17 +130,11 @@ app.whenReady().then(async () => {
       return rate;
     },
   });
-  const officialStoreImport = new OfficialStoreImportService({
-    catalog,
-    priceService,
-    collector,
-    dataDir: app.getPath('userData'),
-  });
   const asinPriceRefresh = new AsinPriceRefreshService({ catalog, prices, priceService });
   catalogScan = new CatalogScanService({
-    officialStoreImport,
     asinPriceRefresh,
     regions: () => regionsForCatalogScan(proxyTransport.getResolved()),
+    initialState: settings.get<CatalogScanState>('catalogScanState'),
     onStateChanged: (state) => {
       settings.set('catalogScanState', state);
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
@@ -160,7 +154,7 @@ app.whenReady().then(async () => {
     version: () => app.getVersion(),
   });
   createWindow();
-  startBackgroundServices({ updates });
+  startBackgroundServices({ updates, scan: catalogScan });
 });
 
 app.on('before-quit', () => {
