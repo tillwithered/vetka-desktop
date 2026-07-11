@@ -10,7 +10,7 @@ describe('AsinPriceRefreshService', () => {
     const progress = vi.fn();
     const service = new AsinPriceRefreshService({
       catalog: { listActive: () => [confirmed, unseeded] as never[] },
-      prices: { listListings: (dollId: string) => dollId === 'robecca' ? [{ status: 'confirmed' }] : [] },
+      prices: { listListings: (dollId: string) => (dollId === 'robecca' ? [{ status: 'confirmed' }] : []) as never[] },
       priceService: { refreshCatalogEntry },
     });
 
