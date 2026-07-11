@@ -5,28 +5,29 @@ import { describe, expect, it, vi } from 'vitest';
 import { CatalogScanStatus } from '@/renderer/features/dolls/catalog-scan-status';
 
 describe('CatalogScanStatus', () => {
-  it('shows the next scan and starts a manual refresh', async () => {
-    const refreshNow = vi.fn(async () => ({ ok: true as const, data: { status: 'running' as const, startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 1, total: 16 } }));
-    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: '2026-07-10T12:00:00.000Z', processed: 16, total: 16 } });
+  it('shows the next daily price check and starts a manual refresh', async () => {
+    const refreshNow = vi.fn(async () => ({ ok: true as const, data: { status: 'running' as const, phase: 'catalog_scan' as const, region: null, startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 1, total: 16 } }));
+    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'idle', phase: null, region: null, startedAt: null, completedAt: null, nextRunAt: '2026-07-11T10:00:00.000Z', processed: 16, total: 16 } });
     window.vetka.catalog.refreshNow = refreshNow;
     render(<CatalogScanStatus />);
 
-    expect(await screen.findByText(/Следующая проверка/i)).toBeVisible();
+    expect(await screen.findByText('Проверка цен')).toBeVisible();
+    expect(await screen.findByText(/Следующая проверка:/i)).toBeVisible();
+    expect(screen.queryByText(/Monster High Store/i)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Обновить сейчас/i }));
     expect(refreshNow).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText(/1 из 16/i)).toBeVisible();
+    expect(await screen.findByText('Проверяются цены: 1 из 16')).toBeVisible();
   });
 
-  it('shows Store import instead of a meaningless zero-counter', async () => {
-    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'official_store', region: 'amazon_uk', startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 0, total: 0 } });
+  it('shows daily price progress instead of an Amazon Store import', async () => {
+    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'catalog_scan', region: null, startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 2, total: 29 } });
     render(<CatalogScanStatus />);
-    expect(await screen.findByText('Monster High Store UK')).toBeVisible();
+    expect(await screen.findByText('Проверяются цены: 2 из 29')).toBeVisible();
   });
 
-  it('describes a Store scan without claiming that every Amazon region is being scanned', async () => {
-    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'official_store', region: 'amazon_uk', startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 1, total: 9 } });
+  it('explains that idle pricing is scheduled once per day', async () => {
+    window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'idle', phase: null, region: null, startedAt: null, completedAt: '2026-07-10T10:00:00.000Z', nextRunAt: '2026-07-11T10:00:00.000Z', processed: 29, total: 29 } });
     render(<CatalogScanStatus />);
-
-    expect((await screen.findAllByText('Сканируются официальные Monster High Store по активным регионам.')).at(-1)).toBeVisible();
+    expect(await screen.findByText('По расписанию: раз в день')).toBeVisible();
   });
 });

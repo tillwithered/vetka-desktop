@@ -19,7 +19,7 @@ export function CatalogScanStatus() {
     let active = true;
     void window.vetka.catalog.getScanState().then((result) => {
       if (!active) return;
-      try { setState(unwrap(result)); } catch (caught) { setError(caught instanceof Error ? caught.message : 'Не удалось получить статус сканирования'); }
+      try { setState(unwrap(result)); } catch (caught) { setError(caught instanceof Error ? caught.message : 'Не удалось получить статус проверки цен'); }
     });
     const unsubscribe = window.vetka.catalog.onScanStateChanged((next) => active && setState(next));
     return () => { active = false; unsubscribe(); };
@@ -27,15 +27,14 @@ export function CatalogScanStatus() {
 
   const refresh = async () => {
     try { setState(unwrap(await window.vetka.catalog.refreshNow())); setError(null); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : 'Не удалось запустить проверку'); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Не удалось запустить проверку цен'); }
   };
 
   const running = state?.status === 'running';
   return <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
     <div className="min-w-0 space-y-1">
-      {state?.phase === 'official_store' && <p className="text-xs text-muted-foreground">Monster High Store {state.region?.replace('amazon_', '').toUpperCase() ?? 'все регионы'}</p>}
-      <div className="flex items-center gap-2"><span className="text-sm font-medium">Автопроверка Amazon</span><Badge variant={running ? 'default' : 'secondary'}>{running ? `Проверяется: ${state?.processed ?? 0} из ${state?.total ?? 0}` : 'По расписанию'}</Badge></div>
-      <p className="text-xs text-muted-foreground">{running ? 'Сканируются официальные Monster High Store по активным регионам.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
+      <div className="flex items-center gap-2"><span className="text-sm font-medium">Проверка цен</span><Badge variant={running ? 'default' : 'secondary'}>{running ? `Проверяются цены: ${state?.processed ?? 0} из ${state?.total ?? 0}` : 'По расписанию: раз в день'}</Badge></div>
+      <p className="text-xs text-muted-foreground">{running ? 'Проверяются подтверждённые карточки Amazon.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
       {state?.lastError && <p role="alert" className="text-xs text-destructive">{state.lastError}</p>}
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
