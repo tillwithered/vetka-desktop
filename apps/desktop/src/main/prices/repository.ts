@@ -87,6 +87,24 @@ export class PriceRepository {
     return listing;
   }
 
+  activateOfficialStoreListing(dollId: string, region: AmazonRegion, asin: string): AmazonListing {
+    const listing = this.getByIdentity(dollId, region, asin);
+    if (!listing) throw new Error('Official Store listing is missing');
+    const now = new Date().toISOString();
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      this.db.prepare("update amazon_listings set status = 'frozen', updated_at = ? where doll_id = ? and region = ? and id <> ? and status = 'confirmed'")
+        .run(now, dollId, region, listing.id);
+      this.db.prepare("update amazon_listings set status = 'confirmed', confirmation_source = 'deterministic_match', updated_at = ? where id = ?")
+        .run(now, listing.id);
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+    return this.getListing(listing.id)!;
+  }
+
   promoteVerifiedCandidates(): number {
     const result = this.db.prepare(`
       update amazon_listings
@@ -133,15 +151,18 @@ export class PriceRepository {
 
   current(dollId: string) {
     return (this.db.prepare(`
-      select l.id as listing_id, l.region, l.asin, l.url,
-        s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
-        s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
-        s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
-        (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status
-      from price_snapshots s join amazon_listings l on l.id = s.listing_id
-      where l.doll_id = ? and l.status = 'confirmed'
-        and s.checked_at = (select max(s2.checked_at) from price_snapshots s2 where s2.listing_id = s.listing_id)
-      order by l.region
+      with latest_listing_snapshots as (
+        select l.id as listing_id, l.region, l.asin, l.url,
+          s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
+          s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
+          s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
+          (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status,
+          row_number() over (partition by l.region order by s.checked_at desc, s.rowid desc) as region_rank
+        from price_snapshots s join amazon_listings l on l.id = s.listing_id
+        where l.doll_id = ? and l.status = 'confirmed'
+          and s.id = (select s2.id from price_snapshots s2 where s2.listing_id = s.listing_id order by s2.checked_at desc, s2.rowid desc limit 1)
+      )
+      select * from latest_listing_snapshots where region_rank = 1 order by region
     `).all(dollId) as Row[]).map((row) => ({
       listingId: String(row.listing_id), region: String(row.region) as AmazonRegion, asin: String(row.asin), url: String(row.url),
       snapshotId: String(row.snapshot_id), offerKind: String(row.offer_kind), priceMinor: Number(row.price_minor), currency: String(row.currency) as AmazonCurrency,
@@ -157,15 +178,18 @@ export class PriceRepository {
     if (dollIds.length === 0) return result;
     const placeholders = dollIds.map(() => '?').join(', ');
     const rows = this.db.prepare(`
-      select l.doll_id, l.id as listing_id, l.region, l.asin, l.url,
-        s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
-        s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
-        s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
-        (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status
-      from price_snapshots s join amazon_listings l on l.id = s.listing_id
-      where l.doll_id in (${placeholders}) and l.status = 'confirmed'
-        and s.checked_at = (select max(s2.checked_at) from price_snapshots s2 where s2.listing_id = s.listing_id)
-      order by l.doll_id, l.region
+      with latest_listing_snapshots as (
+        select l.doll_id, l.id as listing_id, l.region, l.asin, l.url,
+          s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
+          s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
+          s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
+          (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status,
+          row_number() over (partition by l.doll_id, l.region order by s.checked_at desc, s.rowid desc) as region_rank
+        from price_snapshots s join amazon_listings l on l.id = s.listing_id
+        where l.doll_id in (${placeholders}) and l.status = 'confirmed'
+          and s.id = (select s2.id from price_snapshots s2 where s2.listing_id = s.listing_id order by s2.checked_at desc, s2.rowid desc limit 1)
+      )
+      select * from latest_listing_snapshots where region_rank = 1 order by doll_id, region
     `).all(...dollIds) as Row[];
     for (const row of rows) {
       const dollId = String(row.doll_id);

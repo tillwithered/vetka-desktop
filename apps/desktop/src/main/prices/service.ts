@@ -39,6 +39,7 @@ export class PriceService {
       dollId, region: offer.region, asin: offer.asin, url: offer.url,
       status: 'confirmed', confirmationSource: 'deterministic_match',
     });
+    this.dependencies.prices.activateOfficialStoreListing(dollId, offer.region, listing.asin);
     this.dependencies.prices.applyCheck({
       listingId: listing.id, status: 'verified', checkedAt: new Date().toISOString(),
       diagnostic: { source: 'official_monster_high_store', mattelSku: offer.mattelSku },

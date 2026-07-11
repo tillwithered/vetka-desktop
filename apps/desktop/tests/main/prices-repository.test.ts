@@ -79,4 +79,19 @@ describe('PriceRepository', () => {
     expect(prices.getListing(listingId)).toMatchObject({ status: 'confirmed', confirmationSource: 'deterministic_match' });
     expect(prices.current(dollId)).toHaveLength(1);
   });
+
+  it('keeps only the official Store listing current for one doll and region without deleting history', () => {
+    const old = prices.ensureListing({ dollId, region: 'amazon_it', asin: 'B0OLD00001', url: 'https://www.amazon.it/dp/B0OLD00001', status: 'confirmed', confirmationSource: 'manual' });
+    const official = prices.ensureListing({ dollId, region: 'amazon_it', asin: 'B0STORE001', url: 'https://www.amazon.it/dp/B0STORE001', status: 'confirmed', confirmationSource: 'deterministic_match' });
+    const offer = (priceMinor: number) => ({ offerKind: 'regular' as const, priceMinor, currency: 'EUR' as const, shippingMinor: null as number | null, sellerName: 'Amazon', fulfilledByAmazon: true, availability: 'in_stock' as const, condition: 'New' as const, couponText: null as string | null, rateToKztMicros: 550_000_000 });
+    prices.applyCheck({ listingId: old.id, status: 'verified', checkedAt: '2026-07-11T10:00:00.000Z', offer: offer(3050) });
+    prices.applyCheck({ listingId: official.id, status: 'verified', checkedAt: '2026-07-11T11:00:00.000Z', offer: offer(2953) });
+
+    prices.activateOfficialStoreListing(dollId, 'amazon_it', official.asin);
+
+    expect(prices.current(dollId)).toEqual([expect.objectContaining({ asin: official.asin, region: 'amazon_it', priceMinor: 2953 })]);
+    expect(prices.currentForDolls([dollId])[dollId]).toEqual([expect.objectContaining({ asin: official.asin })]);
+    expect(prices.getListing(old.id)).toMatchObject({ status: 'frozen' });
+    expect(prices.history(dollId, 'all')).toHaveLength(2);
+  });
 });
