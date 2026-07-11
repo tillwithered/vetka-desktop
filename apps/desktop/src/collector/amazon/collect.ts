@@ -2,17 +2,34 @@ import type { AmazonRegion } from '@/shared/contracts';
 
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
 import { matchAmazonProduct, matchCatalogOffer } from './matching';
-import { isAmazonCollectorBlocked, parseAmazonProductPage } from './product-page';
+import { isAmazonCollectorBlocked, parseAmazonProductPage, shouldRetryWithProxy, type AmazonPageResult } from './product-page';
 import { amazonRegions } from './regions';
 import { parseAmazonSearchResults } from './search';
 
 export type CollectorDriver = {
   openProduct(region: AmazonRegion, url: string): Promise<string>;
+  openProductViaProxy?(region: AmazonRegion, url: string): Promise<string>;
+  hasProxyRoute?(region: AmazonRegion): boolean;
   search(region: AmazonRegion, term: string): Promise<string>;
 };
 
 function hasDollSearchContext(title: string): boolean {
   return /monster\s+high|mattel|fashion\s+doll|\bdoll\b/i.test(title);
+}
+
+async function readProductPage(
+  driver: CollectorDriver,
+  region: AmazonRegion,
+  url: string,
+  expectedAsin: string,
+): Promise<{ html: string; page: AmazonPageResult }> {
+  let html = await driver.openProduct(region, url);
+  let page = parseAmazonProductPage(html, { region, expectedAsin });
+  if (shouldRetryWithProxy(page.status) && driver.hasProxyRoute?.(region) && driver.openProductViaProxy) {
+    html = await driver.openProductViaProxy(region, url);
+    page = parseAmazonProductPage(html, { region, expectedAsin });
+  }
+  return { html, page };
 }
 
 export async function collectDoll(
@@ -32,11 +49,7 @@ export async function collectDoll(
     for (const listing of listings) {
       progress('checking', region);
       const url = listing.region === region ? listing.url : `https://${amazonRegions[region].host}/dp/${listing.asin}`;
-      const html = await driver.openProduct(region, url);
-      const page = parseAmazonProductPage(html, {
-        region,
-        expectedAsin: listing.asin,
-      });
+      const { html, page } = await readProductPage(driver, region, url, listing.asin);
       let matchDiagnostic;
       if (page.status === 'verified' && request.catalogRules) {
         const match = matchCatalogOffer(request.catalogRules, {
@@ -105,8 +118,7 @@ export async function collectDoll(
 
     for (const candidate of candidates) {
       progress('checking', region);
-      const html = await driver.openProduct(region, candidate.canonicalUrl);
-      const page = parseAmazonProductPage(html, { region, expectedAsin: candidate.asin });
+      const { html, page } = await readProductPage(driver, region, candidate.canonicalUrl, candidate.asin);
       if (page.status !== 'verified') continue;
       const match = request.catalogRules
         ? matchCatalogOffer(request.catalogRules, { title: page.title, evidenceText: `${page.title ?? ''} ${html}`, condition: page.condition })

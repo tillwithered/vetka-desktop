@@ -10,6 +10,7 @@ import { amazonRegions } from './amazon/regions';
 import { parseAmazonProxyTransport, ProxyRouteSelector, type AmazonProxyTransport, type ProxyRoute } from '@/main/collector/proxy-transport';
 
 export type BrowserRequestMode = 'product' | 'store';
+type BrowserTransport = 'direct' | 'proxy';
 
 export class BrowserNotFoundError extends Error {
   readonly code = 'browser_not_found';
@@ -102,8 +103,8 @@ function loadPlaywright(): typeof import('playwright-core') {
 }
 
 export class BrowserCollectorDriver implements CollectorDriver {
-  private readonly contexts = new Map<AmazonRegion, BrowserContext>();
-  private readonly challengeContexts = new Map<AmazonRegion, BrowserContext>();
+  private readonly contexts = new Map<string, BrowserContext>();
+  private readonly challengeContexts = new Map<string, BrowserContext>();
   private proxyRoutes = new ProxyRouteSelector(parseAmazonProxyTransport({ mode: 'direct' }));
   private transportSignature = JSON.stringify({ mode: 'direct', routes: {} });
 
@@ -122,33 +123,45 @@ export class BrowserCollectorDriver implements CollectorDriver {
     return this.proxyRoutes.current(region);
   }
 
+  hasProxyRoute(region: AmazonRegion): boolean {
+    return this.currentProxyRoute(region) !== null;
+  }
+
   async advanceProxyRoute(region: AmazonRegion): Promise<boolean> {
     if (!this.proxyRoutes.advance(region)) return false;
-    const context = this.contexts.get(region);
-    if (context) await context.close().catch((): undefined => undefined);
-    this.contexts.delete(region);
-    await this.closeChallenge(region);
+    await this.closeContext(region, 'proxy');
+    await this.closeChallenge(region, 'proxy');
     return true;
   }
 
-  async openProduct(region: AmazonRegion, url: string): Promise<string> { return this.open(region, url, 'product'); }
+  async openProduct(region: AmazonRegion, url: string): Promise<string> {
+    return this.open(region, url, 'product', null, false);
+  }
+  async openProductViaProxy(region: AmazonRegion, url: string): Promise<string> {
+    const route = this.currentProxyRoute(region);
+    if (!route) throw new Error(`No proxy route configured for ${region}`);
+    return this.open(region, url, 'product', route, true);
+  }
   async openStore(region: AmazonRegion, url: string): Promise<string> {
     await this.closeChallenge(region);
-    return this.open(region, url, 'store');
+    return this.open(region, url, 'store', this.currentProxyRoute(region), false);
   }
   async openStoreProduct(region: AmazonRegion, url: string): Promise<string> {
     await this.closeChallenge(region);
-    return this.open(region, url, 'store');
+    return this.open(region, url, 'store', this.currentProxyRoute(region), false);
   }
   async search(region: AmazonRegion, term: string): Promise<string> {
     const config = amazonRegions[region];
-    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product');
+    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product', this.currentProxyRoute(region), true);
   }
 
-  async closeChallenge(region: AmazonRegion): Promise<void> {
-    const context = this.challengeContexts.get(region);
-    if (context) await context.close().catch((): undefined => undefined);
-    this.challengeContexts.delete(region);
+  async closeChallenge(region: AmazonRegion, transport?: BrowserTransport): Promise<void> {
+    const keys = transport ? [this.contextKey(region, transport)] : ['direct', 'proxy'].map((kind) => this.contextKey(region, kind as BrowserTransport));
+    await Promise.all(keys.map(async (key) => {
+      const context = this.challengeContexts.get(key);
+      if (context) await context.close().catch((): undefined => undefined);
+      this.challengeContexts.delete(key);
+    }));
   }
 
   async close(): Promise<void> {
@@ -158,10 +171,13 @@ export class BrowserCollectorDriver implements CollectorDriver {
     this.challengeContexts.clear();
   }
 
-  private async launchContext(region: AmazonRegion, headless: boolean): Promise<BrowserContext> {
+  private contextKey(region: AmazonRegion, transport: BrowserTransport): string {
+    return `${transport}:${region}`;
+  }
+
+  private async launchContext(region: AmazonRegion, route: ProxyRoute | null, headless: boolean): Promise<BrowserContext> {
     if (!this.executablePath) throw new BrowserNotFoundError();
     const config = amazonRegions[region];
-    const route = this.currentProxyRoute(region);
     const context = await loadPlaywright().chromium.launchPersistentContext(path.join(this.dataDir, 'amazon-profiles', profileForProxyRoute(region, route)), {
       executablePath: this.executablePath,
       headless,
@@ -173,31 +189,41 @@ export class BrowserCollectorDriver implements CollectorDriver {
     return context;
   }
 
-  private async context(region: AmazonRegion): Promise<BrowserContext> {
-    const existing = this.contexts.get(region);
+  private async context(region: AmazonRegion, route: ProxyRoute | null): Promise<BrowserContext> {
+    const key = this.contextKey(region, route ? 'proxy' : 'direct');
+    const existing = this.contexts.get(key);
     if (existing && canReuseBrowserContext(existing)) return existing;
-    if (existing) this.contexts.delete(region);
-    const context = await this.launchContext(region, true);
-    this.contexts.set(region, context);
+    if (existing) this.contexts.delete(key);
+    const context = await this.launchContext(region, route, true);
+    this.contexts.set(key, context);
     return context;
   }
 
-  private async showCaptcha(region: AmazonRegion, url: string, context: BrowserContext): Promise<void> {
+  private async closeContext(region: AmazonRegion, transport: BrowserTransport): Promise<void> {
+    const key = this.contextKey(region, transport);
+    const context = this.contexts.get(key);
+    if (context) await context.close().catch((): undefined => undefined);
+    this.contexts.delete(key);
+  }
+
+  private async showCaptcha(region: AmazonRegion, url: string, context: BrowserContext, route: ProxyRoute | null): Promise<void> {
+    const transport: BrowserTransport = route ? 'proxy' : 'direct';
+    const key = this.contextKey(region, transport);
     await context.close().catch((): undefined => undefined);
-    this.contexts.delete(region);
-    await this.closeChallenge(region);
-    const challengeContext = await this.launchContext(region, false);
-    this.challengeContexts.set(region, challengeContext);
+    this.contexts.delete(key);
+    await this.closeChallenge(region, transport);
+    const challengeContext = await this.launchContext(region, route, false);
+    this.challengeContexts.set(key, challengeContext);
     const page = await challengeContext.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch((): undefined => undefined);
   }
 
-  private async open(region: AmazonRegion, url: string, mode: BrowserRequestMode): Promise<string> {
-    return this.openAttempt(region, url, true, mode);
+  private async open(region: AmazonRegion, url: string, mode: BrowserRequestMode, route: ProxyRoute | null, openCaptchaWindow: boolean): Promise<string> {
+    return this.openAttempt(region, url, true, mode, route, openCaptchaWindow);
   }
 
-  private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean, mode: BrowserRequestMode): Promise<string> {
-    const context = await this.context(region);
+  private async openAttempt(region: AmazonRegion, url: string, mayRetry: boolean, mode: BrowserRequestMode, route: ProxyRoute | null, openCaptchaWindow: boolean): Promise<string> {
+    const context = await this.context(region, route);
     const page: Page = await context.newPage();
     try {
       const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
@@ -221,8 +247,8 @@ export class BrowserCollectorDriver implements CollectorDriver {
         }
       }
       const html = await page.content();
-      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html) && shouldOpenCaptchaWindow(mode)) {
-        await this.showCaptcha(region, url, context);
+      if (/validateCaptcha|enter the characters you see below|robot check/i.test(html) && openCaptchaWindow && shouldOpenCaptchaWindow(mode)) {
+        await this.showCaptcha(region, url, context, route);
       } else {
         await page.close();
       }
@@ -231,8 +257,8 @@ export class BrowserCollectorDriver implements CollectorDriver {
       await page.close().catch((): undefined => undefined);
       if (mayRetry && shouldRetryNavigationError(error)) {
         await context.close().catch((): undefined => undefined);
-        this.contexts.delete(region);
-        return this.openAttempt(region, url, false, mode);
+        this.contexts.delete(this.contextKey(region, route ? 'proxy' : 'direct'));
+        return this.openAttempt(region, url, false, mode, route, openCaptchaWindow);
       }
       throw error;
     }

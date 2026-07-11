@@ -3,6 +3,67 @@ import { describe, expect, it, vi } from 'vitest';
 import { collectDoll, type CollectorDriver } from '@/collector/amazon/collect';
 
 describe('collectDoll', () => {
+  it('retries a confirmed ASIN through proxy exactly once after a direct CAPTCHA', async () => {
+    const verified = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span><div id="corePrice_feature_div"><span class="a-offscreen">£19.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => '<form action="/errors/validateCaptcha"></form>'),
+      openProductViaProxy: vi.fn(async () => verified),
+      hasProxyRoute: vi.fn(() => true),
+      search: vi.fn(async () => ''),
+    };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'direct-then-proxy', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam', mattelSku: 'JHK59' },
+      knownListings: [{ region: 'amazon_uk', asin: 'B0FK1V67X5', url: 'https://www.amazon.co.uk/dp/B0FK1V67X5', confirmed: true }],
+      regions: ['amazon_uk'], knownAsinsOnly: true,
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam', 'Creeproduction'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'verified', asin: 'B0FK1V67X5', regularPrice: { minor: 1999, currency: 'GBP' } });
+    expect(driver.openProduct).toHaveBeenCalledTimes(1);
+    expect(driver.openProductViaProxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not spend proxy bandwidth for a direct product page without a price', async () => {
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span>'),
+      openProductViaProxy: vi.fn(async () => ''),
+      hasProxyRoute: vi.fn(() => true),
+      search: vi.fn(async () => ''),
+    };
+
+    await collectDoll({
+      type: 'refresh-doll', requestId: 'direct-no-price', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam', mattelSku: 'JHK59' },
+      knownListings: [{ region: 'amazon_uk', asin: 'B0FK1V67X5', url: 'https://www.amazon.co.uk/dp/B0FK1V67X5', confirmed: true }],
+      regions: ['amazon_uk'], knownAsinsOnly: true,
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam', 'Creeproduction'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(driver.openProductViaProxy).not.toHaveBeenCalled();
+  });
+
+  it('keeps a direct block when that region has no proxy route', async () => {
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'),
+      openProductViaProxy: vi.fn(async () => ''),
+      hasProxyRoute: vi.fn(() => false),
+      search: vi.fn(async () => ''),
+    };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'direct-block-no-route', dataDir: 'C:/data',
+      doll: { id: 'robecca', name: 'Robecca Steam', mattelSku: 'JHK59' },
+      knownListings: [{ region: 'amazon_uk', asin: 'B0FK1V67X5', url: 'https://www.amazon.co.uk/dp/B0FK1V67X5', confirmed: true }],
+      regions: ['amazon_uk'], knownAsinsOnly: true,
+      catalogRules: { mattelSku: 'JHK59', requiredTerms: ['Robecca Steam', 'Creeproduction'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'blocked', asin: null });
+    expect(driver.openProductViaProxy).not.toHaveBeenCalled();
+  });
+
   it('checks a known listing before search and accepts the verified Buy Box', async () => {
     const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Draculaura</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
     const driver: CollectorDriver = {

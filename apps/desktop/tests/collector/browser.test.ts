@@ -109,4 +109,14 @@ describe('proxy browser isolation', () => {
     expect(driver.currentProxyRoute('amazon_uk')?.label).toBe('uk-two.example:10000');
     expect(await driver.advanceProxyRoute('amazon_uk')).toBe(false);
   });
+
+  it('keeps direct product requests separate from configured proxy routes', async () => {
+    const driver = new BrowserCollectorDriver('C:/data', 'C:/fake-browser.exe');
+    await driver.configureTransport({ mode: 'proxy', routes: { amazon_uk: [route] } });
+
+    expect(driver.hasProxyRoute('amazon_uk')).toBe(true);
+    expect(driver.hasProxyRoute('amazon_de')).toBe(false);
+    expect(profileForProxyRoute('amazon_uk', null)).toMatch(/^amazon_uk[\\/]direct$/);
+    expect(playwrightProxyOptions(null)).toBeUndefined();
+  });
 });
