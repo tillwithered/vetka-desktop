@@ -133,7 +133,9 @@ Expected: FAIL because `refreshCatalogEntry` still runs after Store import.
 
 - [ ] **Step 3: Implement Store-only orchestration and error mapping**
 
-Change `CatalogScanService.run` so that its only operation is `officialStoreImport.run(storeRegions, progress)`. Its manual run sets `phase: 'official_store'`; the normal scheduled callback also calls `runNow({ includeOfficialStore: true })`. Do not call `catalog.listActive()` or `priceService.refreshCatalogEntry()`.
+Change `CatalogScanService.run` so that its only operation is `officialStoreImport.run(storeRegions, progress)`. Its manual run sets `phase: 'official_store'`; the normal scheduled callback also calls `runNow()`. Do not call `catalog.listActive()` or `priceService.refreshCatalogEntry()`.
+
+Change `FavoritePriceTable` and `DollDetailPage` price-refresh mutations to call `window.vetka.catalog.refreshNow()` and invalidate their price/history queries after success. Remove the individual `window.vetka.amazon.refreshDoll` path and its CAPTCHA UI from these operational surfaces.
 
 In `worker.ts`, use a closed-session matcher before storing a region error:
 
