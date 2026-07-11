@@ -28,6 +28,7 @@ export type AmazonPageResult = {
   availability: 'in_stock' | 'preorder' | 'out_of_stock' | null;
   condition: 'New' | null;
   imageUrl?: string | null;
+  modelNumber?: string | null;
 };
 
 const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
@@ -43,6 +44,7 @@ const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
   availability: null,
   condition: null,
   imageUrl: null,
+  modelNumber: null,
 });
 
 export function isAmazonCollectorBlocked(html: string): boolean {
@@ -59,6 +61,27 @@ function firstText($: ReturnType<typeof load>, selectors: string[]): string | nu
     if (value) return value;
   }
   return null;
+}
+
+function productDetail($: ReturnType<typeof load>, labels: RegExp[]): string | null {
+  for (const row of $('tr').toArray()) {
+    const label = $(row).find('th').first().text().replace(/\s+/g, ' ').trim();
+    if (labels.some((pattern) => pattern.test(label))) {
+      const value = $(row).find('td').first().text().replace(/\s+/g, ' ').trim();
+      if (value) return value;
+    }
+  }
+  for (const item of $('#detailBullets_feature_div li, #productDetails_detailBullets_sections1 li').toArray()) {
+    const text = $(item).text().replace(/\s+/g, ' ').trim();
+    if (!labels.some((pattern) => pattern.test(text))) continue;
+    const value = text.replace(/^.*?(?:item model number|model number|manufacturer part number)\s*[:：]?\s*/i, '').trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function mattelSku(value: string | null): string | null {
+  return value?.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
 }
 
 function structuredPrices($: ReturnType<typeof load>, currency: AmazonCurrency): ParsedMoney[] {
@@ -102,6 +125,7 @@ export function parseAmazonProductPage(
   base.asin = asin;
   base.title = title;
   base.imageUrl = $('#landingImage').attr('src') ?? $('#imgTagWrapperId img').first().attr('src') ?? null;
+  base.modelNumber = mattelSku(productDetail($, [/item model number/i, /^model number$/i, /manufacturer part number/i]));
   if (!asin || asin !== context.expectedAsin.toUpperCase()) return { ...base, status: 'identity_mismatch' };
 
   const config = amazonRegions[context.region];
@@ -152,5 +176,6 @@ export function parseAmazonProductPage(
     availability: /pre-?order|vorbestell|reserva|preordin/i.test(availabilityText) ? 'preorder' : 'in_stock',
     condition: condition ?? 'New',
     imageUrl: base.imageUrl,
+    modelNumber: base.modelNumber,
   };
 }

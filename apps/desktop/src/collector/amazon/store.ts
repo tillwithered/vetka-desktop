@@ -43,8 +43,16 @@ function normalizedText(value: string | undefined | null): string | null {
 }
 
 function cardContainer($: ReturnType<typeof load>, element: ReturnType<ReturnType<typeof load>>) {
-  const parent = element.parents().toArray().find((candidate) => $(candidate).is('[data-asin], article, li'));
-  return parent ? $(parent) : null;
+  const candidates = [element.get(0), ...element.parents().toArray()].filter(Boolean).slice(0, 8);
+  for (const candidate of candidates) {
+    const card = $(candidate);
+    const productAsins = new Set(card.find('a[href*="/dp/"], a[href*="/gp/product/"]').toArray()
+      .map((link) => $(link).attr('href')?.match(/\/(?:dp|gp\/product)\/([a-z0-9]{10})(?=\/|[?#]|$)/i)?.[1]?.toUpperCase())
+      .filter((asin): asin is string => Boolean(asin)));
+    const priceNodes = card.find('.a-offscreen, [data-testid*="price"], [data-a-price]').length;
+    if (productAsins.size === 1 && priceNodes > 0) return card;
+  }
+  return null;
 }
 
 export function parseAmazonStoreCards(html: string, region: AmazonRegion): OfficialStoreDoll[] {
@@ -106,7 +114,7 @@ export function parseOfficialStoreDoll(html: string, region: AmazonRegion, url: 
   if (!asin) return null;
   const page = parseAmazonProductPage(html, { region, expectedAsin: asin });
   const title = page.title ?? '';
-  const sku = title.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
+  const sku = page.modelNumber ?? title.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
   const price = page.regularPrice ?? page.primePrice ?? page.subscriptionPrice;
   if (page.status !== 'verified' || !sku || !price || !page.availability || page.availability === 'out_of_stock' || !monsterHighPattern.test(title) || !dollPattern.test(title) || nonDollPattern.test(title)) return null;
   return {

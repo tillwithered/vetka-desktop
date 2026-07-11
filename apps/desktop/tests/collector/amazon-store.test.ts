@@ -35,6 +35,20 @@ describe('official Monster High Store parsing', () => {
     }]);
   });
 
+  it('finds a Store card when Amazon wraps it in generic divs', () => {
+    const html = `
+      <div class="store-card">
+        <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59"></a>
+        <a href="/Monster-High-Robecca/dp/B0FK1V67X5">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</a>
+        <div class="title">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</div>
+        <span class="a-offscreen">GBP 24.99</span>
+      </div>`;
+
+    expect(parseAmazonStoreCards(html, 'amazon_uk')).toMatchObject([{
+      asin: 'B0FK1V67X5', mattelSku: 'JHK59', price: { minor: 2499, currency: 'GBP' },
+    }]);
+  });
+
   it('accepts a New Monster High doll with a Mattel SKU and rejects Store accessories', () => {
     const doll = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span><img id="landingImage" src="https://images.example/robecca.jpg"><div id="corePrice_feature_div"><span class="a-offscreen">£24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
     const accessory = '<input id="ASIN" value="B0FDH2BVXH"><span id="productTitle">Monster High Doll Accessories Earphones JHK31</span><div id="corePrice_feature_div"><span class="a-offscreen">£4.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
@@ -43,6 +57,14 @@ describe('official Monster High Store parsing', () => {
       mattelSku: 'JHK59', name: expect.stringContaining('Robecca'), imageUrl: 'https://images.example/robecca.jpg', price: { minor: 2499, currency: 'GBP' },
     });
     expect(parseOfficialStoreDoll(accessory, 'amazon_uk', 'https://www.amazon.co.uk/dp/B0FDH2BVXH')).toBeNull();
+  });
+
+  it('uses the model number when a Store product title does not contain the SKU', () => {
+    const doll = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll</span><div id="corePrice_feature_div"><span class="a-offscreen">GBP 24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div><table id="productDetails_detailBullets_sections1"><tr><th>Item model number</th><td>JHK59</td></tr></table>';
+
+    expect(parseOfficialStoreDoll(doll, 'amazon_uk', 'https://www.amazon.co.uk/dp/B0FK1V67X5')).toMatchObject({
+      mattelSku: 'JHK59', price: { minor: 2499, currency: 'GBP' },
+    });
   });
 
   it('recognizes the Spanish doll label rendered by the ES Store', () => {

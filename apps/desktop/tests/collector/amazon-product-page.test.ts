@@ -68,6 +68,15 @@ describe('parseAmazonProductPage', () => {
     expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0CXYZ1234' })).toMatchObject({ status: 'verified', imageUrl: 'https://images.example/doll.jpg' });
   });
 
+  it('extracts a Mattel model number from Amazon product details', () => {
+    const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll</span><div id="corePrice_feature_div"><span class="a-offscreen">GBP 24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div><table id="productDetails_detailBullets_sections1"><tr><th>Item model number</th><td>JHK59</td></tr></table>';
+
+    expect(parseAmazonProductPage(html, { region: 'amazon_uk', expectedAsin: 'B0CXYZ1234' })).toMatchObject({
+      status: 'verified',
+      modelNumber: 'JHK59',
+    });
+  });
+
   it('rejects a different product identity', () => {
     expect(parseAmazonProductPage(fixture('amazon_us'), { region: 'amazon_us' as AmazonRegion, expectedAsin: 'B000000000' }).status).toBe('identity_mismatch');
   });
