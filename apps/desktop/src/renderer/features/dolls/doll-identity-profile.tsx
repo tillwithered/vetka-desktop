@@ -1,11 +1,12 @@
-import { ImageIcon } from 'lucide-react';
+import { ExternalLinkIcon, ImageIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import type { Doll } from '@/shared/contracts';
 
-type Fact = { label: string; value: string | null };
+type Fact = { label: string; value: string | null; fullWidth?: boolean };
 
 export function DollIdentityProfile({ doll }: { doll: Doll }) {
   const facts: Fact[] = [
@@ -14,6 +15,7 @@ export function DollIdentityProfile({ doll }: { doll: Doll }) {
     { label: 'Поколение', value: doll.generation },
     { label: 'Mattel SKU', value: doll.mattelSku },
     { label: 'UPC / EAN', value: doll.upcEan },
+    { label: 'Официальное название', value: doll.officialName, fullWidth: true },
   ];
 
   return (
@@ -34,8 +36,9 @@ export function DollIdentityProfile({ doll }: { doll: Doll }) {
         </div>
         <Separator />
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-          {facts.map((fact) => <div key={fact.label} className="min-w-0 space-y-0.5"><dt className="text-xs text-muted-foreground">{fact.label}</dt><dd className="truncate font-medium">{fact.value ?? '—'}</dd></div>)}
+          {facts.map((fact) => <div key={fact.label} className={fact.fullWidth ? 'col-span-2 min-w-0 space-y-0.5' : 'min-w-0 space-y-0.5'}><dt className="text-xs text-muted-foreground">{fact.label}</dt><dd className={fact.fullWidth ? 'break-words font-medium leading-snug' : 'truncate font-medium'}>{fact.value ?? '—'}</dd></div>)}
         </dl>
+        {doll.mattelUrl ? <Button asChild size="sm" variant="outline" className="w-fit"><a href={doll.mattelUrl} target="_blank" rel="noreferrer">Открыть на Mattel<ExternalLinkIcon /></a></Button> : null}
       </CardContent>
     </Card>
   );

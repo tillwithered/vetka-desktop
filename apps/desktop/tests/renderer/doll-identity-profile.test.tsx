@@ -26,4 +26,17 @@ describe('DollIdentityProfile', () => {
     expect(screen.getByLabelText('Нет фото куклы')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
   });
+
+  it('shows the official English Mattel title and compact source link', () => {
+    render(<DollIdentityProfile doll={{
+      ...doll,
+      name: 'Кэтти Нуар — Core',
+      officialName: 'Monster High Catty Noir Fashion Doll With Pet Cat Amulette And Accessories',
+      mattelUrl: 'https://shop.mattel.com/products/monster-high-catty-noir-doll-hxh76',
+    }} />);
+
+    expect(screen.getAllByText('Официальное название').at(-1)).toBeVisible();
+    expect(screen.getByText(/Monster High Catty Noir Fashion Doll With Pet Cat/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Открыть на Mattel' })).toHaveAttribute('href', expect.stringContaining('shop.mattel.com'));
+  });
 });
