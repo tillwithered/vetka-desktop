@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { FavoritePriceTable } from '@/renderer/features/home/favorite-price-table';
 import type { Doll } from '@/shared/contracts';
 
-const doll: Doll = { id: 'doll-1', name: 'Robecca Steam', characterName: null, lineName: 'Boo-riginal Creeproduction', generation: null, mattelSku: 'JHK59', upcEan: null, imagePath: null, notes: null, isFavorite: true, createdAt: '', updatedAt: '' };
+const doll: Doll = { id: 'doll-1', name: 'Robecca Steam', characterName: null, lineName: 'Boo-riginal Creeproduction', generation: null, mattelSku: 'JHK59', officialName: null, mattelUrl: null, upcEan: null, imagePath: null, imageSource: null, notes: null, isFavorite: true, createdAt: '', updatedAt: '' };
 
 afterEach(cleanup);
 

@@ -19,6 +19,8 @@ const columns = {
   lineName: 'line_name',
   generation: 'generation',
   mattelSku: 'mattel_sku',
+  officialName: 'official_name',
+  mattelUrl: 'mattel_url',
   upcEan: 'upc_ean',
   imagePath: 'image_path',
   notes: 'notes',
@@ -32,8 +34,11 @@ function mapDoll(row: DollRow): Doll {
     lineName: row.line_name === null ? null : String(row.line_name),
     generation: row.generation === null ? null : String(row.generation),
     mattelSku: row.mattel_sku === null ? null : String(row.mattel_sku),
+    officialName: row.official_name === null ? null : String(row.official_name),
+    mattelUrl: row.mattel_url === null ? null : String(row.mattel_url),
     upcEan: row.upc_ean === null ? null : String(row.upc_ean),
     imagePath: row.image_path === null ? null : String(row.image_path),
+    imageSource: row.image_source === null ? null : row.image_source as Doll['imageSource'],
     notes: row.notes === null ? null : String(row.notes),
     isFavorite: Number(row.is_favorite) === 1,
     createdAt: String(row.created_at),
@@ -52,8 +57,8 @@ export class DollRepository {
       .prepare(`
         insert into dolls (
           id, name, character_name, line_name, generation, mattel_sku,
-          upc_ean, image_path, notes, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          official_name, mattel_url, upc_ean, image_path, image_source, notes, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         id,
@@ -62,8 +67,11 @@ export class DollRepository {
         parsed.lineName,
         parsed.generation,
         parsed.mattelSku,
+        parsed.officialName,
+        parsed.mattelUrl,
         parsed.upcEan,
         parsed.imagePath,
+        parsed.imagePath ? 'manual' : null,
         parsed.notes,
         now,
         now,
@@ -88,12 +96,12 @@ export class DollRepository {
 
     if (parsed.query) {
       conditions.push(`(
-        lower(name) like ? or lower(coalesce(character_name, '')) like ?
+        lower(name) like ? or lower(coalesce(official_name, '')) like ? or lower(coalesce(character_name, '')) like ?
         or lower(coalesce(line_name, '')) like ?
         or lower(coalesce(mattel_sku, '')) = lower(?) or upc_ean = ?
       )`);
       const like = `%${parsed.query.toLowerCase()}%`;
-      parameters.push(like, like, like, parsed.query, parsed.query);
+      parameters.push(like, like, like, like, parsed.query, parsed.query);
     }
     if (parsed.favoritesOnly) {
       conditions.push('is_favorite = 1');
@@ -110,10 +118,15 @@ export class DollRepository {
     this.getRequired(id);
     const entries = Object.entries(parsed) as Array<[keyof typeof columns, string | null]>;
     const assignments = entries.map(([key]) => `${columns[key]} = ?`);
+    const values = entries.map(([, value]) => value);
+    if ('imagePath' in parsed) {
+      assignments.push('image_source = ?');
+      values.push(parsed.imagePath ? 'manual' : null);
+    }
     const now = new Date().toISOString();
     this.db
       .prepare(`update dolls set ${assignments.join(', ')}, updated_at = ? where id = ?`)
-      .run(...entries.map(([, value]) => value), now, id);
+      .run(...values, now, id);
     return this.getRequired(id);
   }
 

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { DollTable } from '@/renderer/features/dolls/doll-table';
 import type { CurrentPrice, Doll } from '@/shared/contracts';
 
-const doll: Doll = { id: 'd1', name: 'Draculaura', characterName: 'Draculaura', lineName: 'Core Refresh', generation: 'G3', mattelSku: 'HRP64', upcEan: null, imagePath: null, notes: null, isFavorite: true, createdAt: '', updatedAt: '' };
+const doll: Doll = { id: 'd1', name: 'Draculaura', characterName: 'Draculaura', lineName: 'Core Refresh', generation: 'G3', mattelSku: 'HRP64', officialName: null, mattelUrl: null, upcEan: null, imagePath: null, imageSource: null, notes: null, isFavorite: true, createdAt: '', updatedAt: '' };
 const price: CurrentPrice = { listingId: 'l1', region: 'amazon_es', asin: 'B0CXYZ1234', url: 'https://amazon.es/dp/B0CXYZ1234', snapshotId: 's1', offerKind: 'regular', priceMinor: 3499, currency: 'EUR', shippingMinor: null, sellerName: null, fulfilledByAmazon: true, availability: 'in_stock', condition: 'New', couponText: null, rateToKztMicros: 224_000_000, priceKztMinor: 783_776, checkedAt: '', latestCheckStatus: 'verified' };
 
 describe('DollTable', () => {

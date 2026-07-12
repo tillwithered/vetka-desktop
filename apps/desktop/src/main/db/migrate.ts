@@ -4,6 +4,7 @@ import migrationV0 from './migrations/0001_v0.sql?raw';
 import migrationCatalog from './migrations/0002_catalog.sql?raw';
 import migrationKztPrices from './migrations/0003_kzt_prices.sql?raw';
 import migrationStoreCardAvailability from './migrations/0004_store_card_availability.sql?raw';
+import migrationDollCatalogIdentity from './migrations/0005_doll_catalog_identity.sql?raw';
 
 export function runMigrations(db: DatabaseSync): void {
   db.exec('PRAGMA foreign_keys = ON');
@@ -27,6 +28,11 @@ export function runMigrations(db: DatabaseSync): void {
     if (!storeCardAvailabilityMigrationApplied) {
       db.exec(migrationStoreCardAvailability);
       db.prepare('insert into schema_migrations (version, applied_at) values (?, ?)').run(4, new Date().toISOString());
+    }
+    const dollCatalogIdentityApplied = db.prepare('select 1 from schema_migrations where version = 5').get();
+    if (!dollCatalogIdentityApplied) {
+      db.exec(migrationDollCatalogIdentity);
+      db.prepare('insert into schema_migrations (version, applied_at) values (?, ?)').run(5, new Date().toISOString());
     }
     db.exec('COMMIT');
   } catch (error) {

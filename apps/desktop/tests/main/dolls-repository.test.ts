@@ -50,6 +50,21 @@ describe('DollRepository', () => {
     expect(dolls.get('missing')).toBeNull();
   });
 
+  it('persists official Mattel identity and marks a supplied image as manual', () => {
+    const robecca = dolls.create({
+      name: 'Робекка Стим — Boo-riginal Creeproduction',
+      officialName: 'Monster High Boo-Riginal Creeproduction Robecca Steam Doll With Diary, Doll Stand And Pet',
+      mattelUrl: 'https://shop.mattel.com/products/monster-high-boo-riginal-creeproduction-robecca-steam-doll-jhk59',
+      imagePath: 'C:/Violetta/robecca.jpg',
+    });
+
+    expect(dolls.get(robecca.id)).toMatchObject({
+      officialName: expect.stringContaining('Robecca Steam'),
+      mattelUrl: expect.stringContaining('shop.mattel.com'),
+      imageSource: 'manual',
+    });
+  });
+
   it('rejects invalid names and UPC/EAN values', () => {
     expect(() => dolls.create({ name: '   ' })).toThrow();
     expect(() => dolls.create({ name: 'Clawdeen', upcEan: '12AB' })).toThrow();

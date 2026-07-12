@@ -6,7 +6,7 @@ import type { Doll } from '@/shared/contracts';
 
 const doll: Doll = {
   id: 'd1', name: 'Draculaura Core Refresh', characterName: 'Draculaura', lineName: 'Core Refresh', generation: 'G3',
-  mattelSku: 'HRP64', upcEan: '194735183302', imagePath: 'https://images.example/draculaura.jpg', notes: null,
+  mattelSku: 'HRP64', officialName: null, mattelUrl: null, upcEan: '194735183302', imagePath: 'https://images.example/draculaura.jpg', imageSource: 'mattel', notes: null,
   isFavorite: false, createdAt: '', updatedAt: '',
 };
 

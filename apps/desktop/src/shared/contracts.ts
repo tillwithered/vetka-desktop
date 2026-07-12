@@ -10,6 +10,7 @@ export const amazonRegionSchema = z.enum([
 ]);
 
 const nullableText = (maximum: number) => z.string().trim().max(maximum).nullable().default(null);
+const nullableUrl = z.string().trim().url().max(2048).nullable().default(null);
 
 export const dollInputSchema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -17,6 +18,8 @@ export const dollInputSchema = z.object({
   lineName: nullableText(100),
   generation: nullableText(40),
   mattelSku: nullableText(40),
+  officialName: nullableText(500),
+  mattelUrl: nullableUrl,
   upcEan: z.string().trim().regex(/^\d{8,14}$/).nullable().default(null),
   imagePath: z.string().trim().nullable().default(null),
   notes: nullableText(2000),
@@ -29,6 +32,8 @@ export const dollUpdateSchema = z
     lineName: z.string().trim().max(100).nullable().optional(),
     generation: z.string().trim().max(40).nullable().optional(),
     mattelSku: z.string().trim().max(40).nullable().optional(),
+    officialName: z.string().trim().max(500).nullable().optional(),
+    mattelUrl: z.string().trim().url().max(2048).nullable().optional(),
     upcEan: z.string().trim().regex(/^\d{8,14}$/).nullable().optional(),
     imagePath: z.string().trim().nullable().optional(),
     notes: z.string().trim().max(2000).nullable().optional(),
@@ -41,7 +46,7 @@ export const dollListFilterSchema = z.object({
 });
 
 export type AmazonRegion = z.infer<typeof amazonRegionSchema>;
-export type DollInput = z.infer<typeof dollInputSchema>;
+export type DollInput = z.input<typeof dollInputSchema>;
 export type DollUpdate = z.infer<typeof dollUpdateSchema>;
 export type DollListFilter = z.infer<typeof dollListFilterSchema>;
 
@@ -61,8 +66,9 @@ export type PublicAmazonProxyTransport = {
   regions: Record<AmazonRegion, { configured: boolean; routeCount: number; labels: string[] }>;
 };
 
-export type Doll = DollInput & {
+export type Doll = z.output<typeof dollInputSchema> & {
   id: string;
+  imageSource: 'manual' | 'mattel' | 'amazon' | null;
   isFavorite: boolean;
   createdAt: string;
   updatedAt: string;

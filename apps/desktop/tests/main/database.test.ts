@@ -27,7 +27,12 @@ describe('V0 migration', () => {
       ]),
     );
     expect(db.prepare('pragma foreign_keys').get()).toEqual({ foreign_keys: 1 });
-    expect(db.prepare('select version from schema_migrations').get()).toEqual({ version: 1 });
+    expect(db.prepare('select max(version) as version from schema_migrations').get()).toEqual({ version: 5 });
+    expect(db.prepare("pragma table_info('dolls')").all()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'official_name' }),
+      expect.objectContaining({ name: 'mattel_url' }),
+      expect.objectContaining({ name: 'image_source' }),
+    ]));
 
     db.close();
   });

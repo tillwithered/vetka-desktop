@@ -9,7 +9,7 @@ describe('AddDollDialog', () => {
   afterEach(cleanup);
   it('creates a manual card without forcing an Amazon link', async () => {
     const user = userEvent.setup();
-    const create = vi.fn(async () => ({ ok: true as const, data: { id: 'd2', name: 'Manual doll', characterName: null, lineName: null, generation: null, mattelSku: null, upcEan: null, imagePath: null, notes: null, isFavorite: false, createdAt: '', updatedAt: '' } }));
+    const create = vi.fn(async () => ({ ok: true as const, data: { id: 'd2', name: 'Manual doll', characterName: null, lineName: null, generation: null, mattelSku: null, officialName: null, mattelUrl: null, upcEan: null, imagePath: null, imageSource: null, notes: null, isFavorite: false, createdAt: '', updatedAt: '' } }));
     const addListing = vi.fn(async () => ({ ok: true as const, data: {} }));
     window.vetka.dolls.create = create;
     window.vetka.amazon.addListing = addListing;
@@ -25,7 +25,7 @@ describe('AddDollDialog', () => {
 
   it('keeps an invalid Amazon URL and creates a doll with a valid one', async () => {
     const user = userEvent.setup();
-    const create = vi.fn(async () => ({ ok: true as const, data: { id: 'd1', name: 'Draculaura', characterName: null, lineName: null, generation: null, mattelSku: null, upcEan: null, imagePath: null, notes: null, isFavorite: false, createdAt: '', updatedAt: '' } }));
+    const create = vi.fn(async () => ({ ok: true as const, data: { id: 'd1', name: 'Draculaura', characterName: null, lineName: null, generation: null, mattelSku: null, officialName: null, mattelUrl: null, upcEan: null, imagePath: null, imageSource: null, notes: null, isFavorite: false, createdAt: '', updatedAt: '' } }));
     const addListing = vi.fn(async () => ({ ok: true as const, data: {} }));
     window.vetka.dolls.create = create;
     window.vetka.amazon.addListing = addListing;
