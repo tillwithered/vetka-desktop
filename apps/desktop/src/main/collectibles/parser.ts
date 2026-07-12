@@ -93,12 +93,32 @@ function findProductJson(html: string): ProductJson | null {
 
 function russianIdentity(officialName: string): { nameRu: string; lineName: string | null } {
   const characters: Array<[RegExp, string]> = [
+    [/Frankenstein & Bride of Frankenstein/i, 'Франкенштейн и Невеста Франкенштейна'],
+    [/Draculaura and Clawd Wolf/i, 'Дракулаура и Клод Вульф'],
+    [/Nightmare Before Christmas/i, 'Джек Скеллингтон и Салли'],
+    [/Chucky and Tiffany/i, 'Чаки и Тиффани'],
+    [/Us Dolls.+Adelaide and Red/i, 'Аделаида и Рэд'],
+    [/Creature From The Black Lagoon/i, 'Существо из Чёрной лагуны'],
+    [/Annabelle/i, 'Аннабель'],
     [/Ghostbusters Gozer/i, 'Гозер'],
     [/Beetlejuice/i, 'Битлджус'],
+    [/Morticia Addams/i, 'Мортиша Аддамс'],
+    [/Bianca Barclay/i, 'Бьянка Барклай'],
+    [/Wednesday(?: Addams)?/i, 'Уэнсдэй Аддамс'],
+    [/Electra Melody/i, 'Электра Мелоди'],
+    [/Harmonie Ghoul/i, 'Хармони Гул'],
+    [/Raven Rhapsody/i, 'Рэйвен Рапсоди'],
+    [/Symphanee Midnight/i, 'Симфани Миднайт'],
+    [/Ghoulia Yelps/i, 'Гулия Йелпс'],
+    [/Skelita Calaveras/i, 'Скелита Калаверас'],
+    [/Jinafire Long/i, 'Джинафайр Лонг'],
+    [/Rochelle Goyle/i, 'Рошель Гойл'],
+    [/Elvira/i, 'Эльвира'],
+    [/Greta Gremlin/i, 'Грета Гремлин'],
     [/Abbey Bominable/i, 'Эбби Боминейбл'],
     [/Draculaura/i, 'Дракулаура'],
     [/Frankie Stein/i, 'Фрэнки Штейн'],
-    [/Clawdeen Wolf/i, 'Клодин Вульф'],
+    [/Clawdeen(?: Wolf)?/i, 'Клодин Вульф'],
     [/Cleo De Nile/i, 'Клео де Нил'],
     [/Lagoona Blue/i, 'Лагуна Блю'],
     [/Robecca Steam/i, 'Робекка Стим'],
@@ -108,10 +128,22 @@ function russianIdentity(officialName: string): { nameRu: string; lineName: stri
   const collaboration = /Ghostbusters/i.test(officialName) ? 'Skullector x Ghostbusters'
     : /Beetlejuice/i.test(officialName) ? 'Skullector x Beetlejuice'
       : /Skullector/i.test(officialName) ? 'Skullector'
-        : /Fang Vote/i.test(officialName) ? 'Fang Vote'
-          : /Haunt Couture/i.test(officialName) ? 'Haunt Couture'
-            : null;
-  return { nameRu: collaboration ? `${character} — ${collaboration.split(' x ')[0]}` : character, lineName: collaboration };
+        : /Off-White/i.test(officialName) ? 'Off-White'
+          : /x Wednesday/i.test(officialName) ? 'Monster High x Wednesday'
+            : /Rave.?N Dance/i.test(officialName) ? "Rave'N Dance"
+              : /Fang Vote/i.test(officialName) ? 'Fang Vote'
+                : /Haunt Couture/i.test(officialName) ? 'Haunt Couture'
+                  : /Midnight Runway/i.test(officialName) ? 'Midnight Runway'
+                    : /Howliday.+D[ií]a De Muertos/i.test(officialName) ? 'Howliday: Día de Muertos'
+                      : /Howliday/i.test(officialName) ? 'Howliday'
+                        : /Reel Drama/i.test(officialName) ? 'Reel Drama'
+                          : /Freak Du Chic/i.test(officialName) ? 'Freak Du Chic'
+                            : /Ghouluxe/i.test(officialName) ? 'Ghouluxe'
+                              : /Voltageous/i.test(officialName) ? 'Voltageous'
+                                : /Reproduction/i.test(officialName) ? 'Reproduction'
+                                  : null;
+  const visibleLine = collaboration?.startsWith('Skullector x ') ? 'Skullector' : collaboration;
+  return { nameRu: visibleLine ? `${character} — ${visibleLine}` : character, lineName: collaboration };
 }
 
 function moneyMinor(price: string | number | undefined): number | null {

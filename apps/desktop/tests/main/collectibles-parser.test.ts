@@ -51,6 +51,36 @@ describe('Mattel Creations parser', () => {
     });
   });
 
+  it.each([
+    ['Annabelle Monster High Skullector Doll', 'Аннабель — Skullector', 'Skullector'],
+    ['Frankenstein & Bride of Frankenstein Monster High Skullector Doll Set', 'Франкенштейн и Невеста Франкенштейна — Skullector', 'Skullector'],
+    ['Monster High 2024 Fang Vote Jinafire Long Doll', 'Джинафайр Лонг — Fang Vote', 'Fang Vote'],
+    ['Monster High Clawdeen Haunt Couture Doll', 'Клодин Вульф — Haunt Couture', 'Haunt Couture'],
+    ['Monster High Collectors Ghouluxe Ghoulia Yelps Doll', 'Гулия Йелпс — Ghouluxe', 'Ghouluxe'],
+    ['Monster High Draculaura and Clawd Wolf Howliday Love 2-Pack', 'Дракулаура и Клод Вульф — Howliday', 'Howliday'],
+    ['Monster High Howliday Día De Muertos Skelita Calaveras Doll', 'Скелита Калаверас — Howliday: Día de Muertos', 'Howliday: Día de Muertos'],
+    ['Monster High Rave’N Dance Wednesday Doll', "Уэнсдэй Аддамс — Rave'N Dance", "Rave'N Dance"],
+    ['Monster High Skullector Chucky and Tiffany Doll 2-Pack', 'Чаки и Тиффани — Skullector', 'Skullector'],
+    ['Monster High Skullector Elvira Doll', 'Эльвира — Skullector', 'Skullector'],
+    ['Monster High Skullector Greta Gremlin Doll', 'Грета Гремлин — Skullector', 'Skullector'],
+    ['Monster High Skullector Series Creature From The Black Lagoon Doll', 'Существо из Чёрной лагуны — Skullector', 'Skullector'],
+    ['Monster High Skullector The Nightmare Before Christmas DollS', 'Джек Скеллингтон и Салли — Skullector', 'Skullector'],
+    ['Monster High Skullector Us Dolls – Adelaide and Red 2-Pack', 'Аделаида и Рэд — Skullector', 'Skullector'],
+    ['Monster High Wednesday Morticia Addams Skullector Doll', 'Мортиша Аддамс — Skullector', 'Skullector'],
+    ['Monster High x Wednesday Bianca Barclay Doll', 'Бьянка Барклай — Monster High x Wednesday', 'Monster High x Wednesday'],
+    ['Off-White™ c/o Monster High Electra Melody Doll', 'Электра Мелоди — Off-White', 'Off-White'],
+    ['Off-White™ c/o Monster High Harmonie Ghoul Doll', 'Хармони Гул — Off-White', 'Off-White'],
+    ['Off-White™ c/o Monster High Raven Rhapsody Doll', 'Рэйвен Рапсоди — Off-White', 'Off-White'],
+    ['Off-White™ c/o Monster High Symphanee Midnight Doll', 'Симфани Миднайт — Off-White', 'Off-White'],
+  ])('provides Russian identity for %s', (officialName, nameRu, lineName) => {
+    const html = `<script type="application/ld+json">{
+      "@type":"Product","name":${JSON.stringify(officialName)},"sku":"TEST1",
+      "offers":{"availability":"https://schema.org/InStock"}
+    }</script>`;
+
+    expect(parseCollectibleProduct(html, gozerUrl)).toMatchObject({ nameRu, lineName });
+  });
+
   it('parses a sold-out doll without treating hidden Add to Bag copy as availability', () => {
     expect(parseCollectibleProduct(fixture('sold-out.html'), 'https://example.invalid')).toMatchObject({
       mattelSku: 'JCX58', lifecycle: 'sold_out', priceMinor: 10000,
