@@ -42,9 +42,27 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe('CatalogRepository', () => {
-  it('ships a 29-item Monster High SKU seed without duplicate SKUs', () => {
-    expect(monsterHighSkuCatalog).toHaveLength(29);
-    expect(new Set(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).size).toBe(29);
+  it('ships a duplicate-free retail seed with the current Mattel releases', () => {
+    expect(new Set(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).size).toBe(monsterHighSkuCatalog.length);
+    expect(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).toEqual(expect.arrayContaining([
+      'JMG63', 'JKD76', 'JMG74', 'JHK46', 'JMG66', 'JMG73', 'JMG65', 'JMB81',
+    ]));
+  });
+
+  it('requires complete product-specific Mattel identity for active retail entries', () => {
+    const active = monsterHighSkuCatalog.filter((entry) => entry.monitorStatus === 'active');
+    for (const entry of active) {
+      expect(entry.officialName, entry.mattelSku).toBeTruthy();
+      expect(entry.mattelUrl, entry.mattelSku).toMatch(/^https:\/\/shop\.mattel\.com\/products\//);
+      expect(entry.mattelImageUrl, entry.mattelSku).toMatch(/^https:\/\/cdn\.shopify\.com\//);
+      expect(entry.sourceUrl, entry.mattelSku).toBe(entry.mattelUrl);
+    }
+  });
+
+  it('rejects an active entry without complete official Mattel identity', () => {
+    expect(() => catalog.importSeed([{ ...seed[0], officialName: null }])).toThrow(
+      'Active catalog entry requires official Mattel identity',
+    );
   });
 
   it('uses a Russian operational name and verified Mattel identity for Robecca', () => {

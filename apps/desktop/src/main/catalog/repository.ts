@@ -19,6 +19,11 @@ const catalogSeedSchema = z.object({
   officialName: z.string().trim().min(1).max(500).nullable().default(null),
   mattelUrl: z.string().url().max(2048).nullable().default(null),
   mattelImageUrl: z.string().url().max(2048).nullable().default(null),
+}).superRefine((entry, context) => {
+  if (entry.monitorStatus !== 'active') return;
+  if (!entry.officialName || !entry.mattelUrl || !entry.mattelImageUrl || entry.sourceUrl !== entry.mattelUrl) {
+    context.addIssue({ code: 'custom', message: 'Active catalog entry requires official Mattel identity' });
+  }
 });
 
 export type CatalogSeedEntry = {
@@ -52,7 +57,10 @@ export class CatalogRepository {
   importSeed(entries: readonly CatalogSeedEntry[]): CatalogImportResult {
     const parsed = entries.map((entry) => {
       const result = catalogSeedSchema.safeParse({ ...entry, requiredTerms: [...entry.requiredTerms], rejectTerms: [...entry.rejectTerms], mattelSku: entry.mattelSku.trim().toUpperCase() });
-      if (!result.success) throw new Error('Invalid catalog entry');
+      if (!result.success) {
+        const identityIssue = result.error.issues.find((issue) => issue.message === 'Active catalog entry requires official Mattel identity');
+        throw new Error(identityIssue?.message ?? 'Invalid catalog entry');
+      }
       return result.data;
     });
     const duplicate = new Set<string>();
