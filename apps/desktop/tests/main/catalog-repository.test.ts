@@ -6,7 +6,8 @@ import { monsterHighSkuCatalog } from '@/main/catalog/seed';
 import { runMigrations } from '@/main/db/migrate';
 import { DollRepository } from '@/main/dolls/repository';
 import { PriceRepository } from '@/main/prices/repository';
-import { seedVerifiedAmazonListings } from '@/main/catalog/listing-seed';
+import { seedVerifiedAmazonListings, verifiedAmazonListings } from '@/main/catalog/listing-seed';
+import { normalizeAmazonUrl } from '@/collector/amazon/url';
 
 const seed = [
   {
@@ -142,5 +143,16 @@ describe('CatalogRepository', () => {
       region: 'amazon_es', asin: 'B0CMGDLQC9', status: 'confirmed', confirmationSource: 'exact_id',
     }));
     expect(catalog.listActive().at(0)).toMatchObject({ mattelSku: 'HXH76' });
+  });
+
+  it('keeps trusted Amazon mappings unique and canonical by SKU and region', () => {
+    const keys = new Set<string>();
+    for (const listing of verifiedAmazonListings) {
+      const key = `${listing.mattelSku}:${listing.region}`;
+      expect(keys.has(key), key).toBe(false);
+      keys.add(key);
+      expect(normalizeAmazonUrl(listing.url)).toMatchObject({ region: listing.region, asin: listing.asin });
+      expect(listing.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 });

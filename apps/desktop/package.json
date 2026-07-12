@@ -14,7 +14,8 @@
     "release:verify-version": "node scripts/verify-release-version.mjs",
     "lint": "eslint --ext .ts,.tsx .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "catalog:audit": "vitest run tests/main/catalog-audit.test.ts"
   },
   "keywords": [],
   "author": {
