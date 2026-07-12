@@ -125,4 +125,19 @@ describe('validated IPC', () => {
     })).resolves.toMatchObject({ ok: true, data: { regions: { amazon_uk: { labels: ['uk.example:10000'] } } } });
     expect(JSON.stringify(await handlers.get(channels.collectorTransportGet)?.({}))).not.toContain('very-secret');
   });
+
+  it('returns the complete regional price state through a validated endpoint', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const regions = { list: vi.fn(() => [{ region: 'amazon_us', status: 'unchecked' }]) };
+    registerIpcHandlers({ handle: (channel, handler) => handlers.set(channel, handler) }, {
+      dolls: new DollRepository(db), settings: new SettingsRepository(db), version: () => '1.2.3',
+      regionStates: regions as never,
+    });
+
+    await expect(handlers.get(channels.pricesRegions)?.({}, 'doll-1'))
+      .resolves.toMatchObject({ ok: true, data: [{ region: 'amazon_us', status: 'unchecked' }] });
+    expect(regions.list).toHaveBeenCalledWith('doll-1');
+    await expect(handlers.get(channels.pricesRegions)?.({}, ' '))
+      .resolves.toMatchObject({ ok: false, error: { code: 'VALIDATION_ERROR' } });
+  });
 });

@@ -9,6 +9,7 @@ import type { OrderRepository } from '@/main/orders/repository';
 import type { CollectorClient } from '@/main/collector/client';
 import type { CatalogScanService } from '@/main/catalog/scan-service';
 import type { CollectiblesService } from '@/main/collectibles/service';
+import type { CatalogRegionStateService } from '@/main/catalog/region-state-service';
 import { UpdateNotReadyError, type UpdateService } from '@/main/updates/service';
 import { normalizeAmazonUrl } from '@/collector/amazon/url';
 import { channels } from '@/shared/channels';
@@ -31,6 +32,7 @@ type Dependencies = {
   settings: SettingsRepository;
   version: () => string;
   prices?: PriceRepository;
+  regionStates?: Pick<CatalogRegionStateService, 'list'>;
   priceService?: PriceService;
   orders?: OrderRepository;
   collector?: CollectorClient;
@@ -219,6 +221,10 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
   registrar.handle(channels.pricesCurrentForDolls, validated(z.array(idSchema).max(200), (ids) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');
     return dependencies.prices.currentForDolls(ids);
+  }));
+  registrar.handle(channels.pricesRegions, validated(idSchema, (id) => {
+    if (!dependencies.regionStates) throw new Error('Regional price workspace is unavailable');
+    return dependencies.regionStates.list(id);
   }));
   registrar.handle(channels.pricesHistory, validated(historySchema, ({ dollId, range }) => {
     if (!dependencies.prices) throw new Error('Price workspace is unavailable');

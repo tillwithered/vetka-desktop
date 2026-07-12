@@ -68,6 +68,7 @@ const api: VetkaDesktopApi = {
   prices: {
     current: (dollId) => ipcRenderer.invoke(channels.pricesCurrent, dollId),
     currentForDolls: (dollIds) => ipcRenderer.invoke(channels.pricesCurrentForDolls, dollIds),
+    regions: (dollId) => ipcRenderer.invoke(channels.pricesRegions, dollId),
     history: (dollId, range = '30d') => ipcRenderer.invoke(channels.pricesHistory, { dollId, range }),
   },
   orders: {

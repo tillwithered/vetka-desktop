@@ -69,7 +69,7 @@ const testApi: VetkaDesktopApi = {
     resumeRegion: async () => ({ ok: true, data: null }),
     onProgress: () => (): void => undefined,
   },
-  prices: { current: async () => ({ ok: true, data: [] }), currentForDolls: async () => ({ ok: true, data: {} }), history: async () => ({ ok: true, data: [] }) },
+  prices: { current: async () => ({ ok: true, data: [] }), currentForDolls: async () => ({ ok: true, data: {} }), regions: async () => ({ ok: true, data: [] }), history: async () => ({ ok: true, data: [] }) },
   orders: {
     list: async () => ({ ok: true, data: [] }),
     get: async () => ({ ok: true, data: null }),

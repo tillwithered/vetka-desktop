@@ -26,6 +26,7 @@ export const channels = {
   amazonResumeRegion: 'vetka:amazon:resume-region',
   pricesCurrent: 'vetka:prices:current',
   pricesCurrentForDolls: 'vetka:prices:current-for-dolls',
+  pricesRegions: 'vetka:prices:regions',
   pricesHistory: 'vetka:prices:history',
   collectorProgress: 'vetka:collector:progress',
   ordersList: 'vetka:orders:list',

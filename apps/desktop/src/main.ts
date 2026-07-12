@@ -34,6 +34,7 @@ import { DirectMattelBrowser } from './main/collectibles/browser';
 import { MattelCreationsClient } from './main/collectibles/client';
 import { CollectiblesService } from './main/collectibles/service';
 import { CatalogRegionEvidenceRepository } from './main/catalog/region-evidence-repository';
+import { CatalogRegionStateService } from './main/catalog/region-state-service';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
@@ -101,6 +102,7 @@ app.whenReady().then(async () => {
   setInterval(() => { void nbkRates.refresh().catch((): undefined => undefined); }, 86_400_000);
   const prices = new PriceRepository(database);
   const regionEvidence = new CatalogRegionEvidenceRepository(database);
+  const regionStates = new CatalogRegionStateService({ db: database, evidence: regionEvidence, prices });
   prices.promoteVerifiedCandidates();
   seedVerifiedAmazonListings({ catalog, prices });
   const orders = new OrderRepository(database);
@@ -164,6 +166,7 @@ app.whenReady().then(async () => {
     settings,
     proxyTransport,
     prices,
+    regionStates,
     priceService,
     orders,
     collector,

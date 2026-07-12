@@ -141,6 +141,21 @@ export type CurrentPrice = {
   latestCheckStatus: string;
 };
 
+export type RegionalPriceStatus =
+  | 'unchecked' | 'verified' | 'out_of_stock' | 'no_price' | 'not_found' | 'needs_review'
+  | 'captcha_required' | 'blocked' | 'parser_changed' | 'identity_mismatch'
+  | 'network_error' | 'conflict';
+
+export type RegionalPriceState = {
+  region: AmazonRegion;
+  status: RegionalPriceStatus;
+  evidenceUrl: string;
+  asin: string | null;
+  checkedAt: string | null;
+  currentPrice: CurrentPrice | null;
+  overdue: boolean;
+};
+
 export type PriceHistoryRecord = {
   region: AmazonRegion;
   listingId: string;
@@ -210,6 +225,7 @@ export type VetkaDesktopApi = {
   prices: {
     current(dollId: string): Promise<ApiResult<CurrentPrice[]>>;
     currentForDolls(dollIds: string[]): Promise<ApiResult<Record<string, CurrentPrice[]>>>;
+    regions(dollId: string): Promise<ApiResult<RegionalPriceState[]>>;
     history(dollId: string, range?: '7d' | '30d' | '90d' | 'all'): Promise<ApiResult<PriceHistoryRecord[]>>;
   };
   orders: {
