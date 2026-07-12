@@ -12,6 +12,12 @@ export const amazonRegions = {
 // amazon.com. Keep the observed currency rather than silently dropping it.
 export type AmazonCurrency = (typeof amazonRegions)[AmazonRegion]['currency'] | 'KZT';
 
+export function amazonSearchEvidenceUrl(region: AmazonRegion, term: string): string {
+  const url = new URL(`https://${amazonRegions[region].host}/s`);
+  url.searchParams.set('k', term.trim());
+  return url.toString();
+}
+
 export function regionForHost(hostname: string): AmazonRegion | null {
   const normalized = hostname.toLowerCase().replace(/^www\./, '');
   const entry = Object.entries(amazonRegions).find(([, config]) => config.host.replace(/^www\./, '') === normalized);

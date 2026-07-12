@@ -62,6 +62,7 @@ describe('collectDoll', () => {
       status: 'no_price',
       asin: 'B0FK1V67X5',
       url: 'https://www.amazon.de/dp/B0FK1V67X5',
+      evidenceUrl: 'https://www.amazon.de/dp/B0FK1V67X5',
     });
   });
 
@@ -253,6 +254,9 @@ describe('collectDoll', () => {
       catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
     }, driver, vi.fn());
 
-    expect(result.regions.amazon_us).toMatchObject({ status: 'no_price', asin: null });
+    expect(result.regions.amazon_us).toMatchObject({
+      status: 'not_found', asin: null,
+      evidenceUrl: 'https://www.amazon.com/s?k=JMB92',
+    });
   });
 });

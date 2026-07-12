@@ -3,7 +3,7 @@ import type { AmazonRegion } from '@/shared/contracts';
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
 import { matchAmazonProduct, matchCatalogOffer } from './matching';
 import { isAmazonCaptcha, isAmazonCollectorBlocked, parseAmazonProductPage, shouldRetryWithProxy, type AmazonPageResult } from './product-page';
-import { amazonRegions } from './regions';
+import { amazonRegions, amazonSearchEvidenceUrl } from './regions';
 import { parseAmazonSearchResults } from './search';
 
 export type CollectorDriver = {
@@ -89,7 +89,7 @@ export async function collectDoll(
         matchDiagnostic = match;
         if (match.status !== 'verified') continue;
       }
-      result.regions[region] = { ...page, region, url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
+      result.regions[region] = { ...page, region, url, evidenceUrl: url, reviewCandidates: [], ...(matchDiagnostic ? { matchDiagnostic } : {}) };
       if (page.status === 'verified' || page.status === 'captcha_required' || page.status === 'blocked') {
         if (page.status === 'captcha_required') progress('captcha_required', region);
         accepted = true;
@@ -108,7 +108,7 @@ export async function collectDoll(
       result.regions[region] = {
         status: 'no_price', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
         couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null,
-        region, url: null, reviewCandidates: [],
+        region, url: null, evidenceUrl: amazonSearchEvidenceUrl(region, request.catalogRules?.mattelSku ?? request.doll.mattelSku ?? request.doll.name), reviewCandidates: [],
       };
       continue;
     }
@@ -134,7 +134,7 @@ export async function collectDoll(
         result.regions[region] = {
           status: 'blocked', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
           couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null,
-          region, url: null, reviewCandidates: [],
+          region, url: null, evidenceUrl: amazonSearchEvidenceUrl(region, term), reviewCandidates: [],
         };
         accepted = true;
         break;
@@ -172,13 +172,13 @@ export async function collectDoll(
           })
         : matchAmazonProduct(request.doll, candidate);
       if (match.status !== 'verified') continue;
-      result.regions[region] = { ...page, region, url: candidate.canonicalUrl, reviewCandidates: [], matchDiagnostic: match };
+      result.regions[region] = { ...page, region, url: candidate.canonicalUrl, evidenceUrl: candidate.canonicalUrl, reviewCandidates: [], matchDiagnostic: match };
       accepted = true;
       break;
     }
     if (accepted) continue;
     result.regions[region] = {
-      status: 'no_price',
+      status: 'not_found',
       asin: null,
       title: null,
       regularPrice: null,
@@ -191,6 +191,7 @@ export async function collectDoll(
       condition: null,
       region,
       url: null,
+      evidenceUrl: amazonSearchEvidenceUrl(region, request.catalogRules?.mattelSku ?? request.doll.mattelSku ?? request.doll.name),
       reviewCandidates: [],
     };
   }

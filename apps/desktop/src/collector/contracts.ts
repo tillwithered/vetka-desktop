@@ -43,6 +43,7 @@ export type CollectorRequestInput = Omit<CollectorRequest, 'type' | 'requestId' 
 export type CollectorRegionResult = AmazonPageResult & {
   region: AmazonRegion;
   url: string | null;
+  evidenceUrl: string;
   reviewCandidates: AmazonCandidate[];
   matchDiagnostic?: MatchDecision;
 };

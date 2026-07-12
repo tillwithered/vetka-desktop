@@ -9,6 +9,7 @@ export type AmazonPageStatus =
   | 'verified'
   | 'out_of_stock'
   | 'no_price'
+  | 'not_found'
   | 'blocked'
   | 'captcha_required'
   | 'parser_changed'
