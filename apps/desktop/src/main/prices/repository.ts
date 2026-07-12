@@ -160,18 +160,24 @@ export class PriceRepository {
 
   current(dollId: string) {
     return (this.db.prepare(`
-      with latest_listing_snapshots as (
+      with latest_checks as (
+        select c.*,
+          row_number() over (partition by c.listing_id order by c.finished_at desc, c.rowid desc) as check_rank
+        from price_checks c
+      ), current_listing_snapshots as (
         select l.id as listing_id, l.region, l.asin, l.url,
           s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
           s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
           s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
-          (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status,
+          c.status as latest_check_status,
           row_number() over (partition by l.region order by s.checked_at desc, s.rowid desc) as region_rank
-        from price_snapshots s join amazon_listings l on l.id = s.listing_id
+        from latest_checks c
+        join amazon_listings l on l.id = c.listing_id
+        join price_snapshots s on s.check_id = c.id
         where l.doll_id = ? and l.status = 'confirmed'
-          and s.id = (select s2.id from price_snapshots s2 where s2.listing_id = s.listing_id order by s2.checked_at desc, s2.rowid desc limit 1)
+          and c.check_rank = 1 and c.status = 'verified'
       )
-      select * from latest_listing_snapshots where region_rank = 1 order by region
+      select * from current_listing_snapshots where region_rank = 1 order by region
     `).all(dollId) as Row[]).map((row) => ({
       listingId: String(row.listing_id), region: String(row.region) as AmazonRegion, asin: String(row.asin), url: String(row.url),
       snapshotId: String(row.snapshot_id), offerKind: String(row.offer_kind), priceMinor: Number(row.price_minor), currency: String(row.currency) as AmazonCurrency,
@@ -187,18 +193,24 @@ export class PriceRepository {
     if (dollIds.length === 0) return result;
     const placeholders = dollIds.map(() => '?').join(', ');
     const rows = this.db.prepare(`
-      with latest_listing_snapshots as (
+      with latest_checks as (
+        select c.*,
+          row_number() over (partition by c.listing_id order by c.finished_at desc, c.rowid desc) as check_rank
+        from price_checks c
+      ), current_listing_snapshots as (
         select l.doll_id, l.id as listing_id, l.region, l.asin, l.url,
           s.id as snapshot_id, s.offer_kind, s.price_minor, s.currency, s.shipping_minor,
           s.seller_name, s.fulfilled_by_amazon, s.availability, s.condition, s.coupon_text,
           s.rate_to_kzt_micros, s.price_kzt_minor, s.checked_at,
-          (select c.status from price_checks c where c.listing_id = l.id order by c.finished_at desc, c.rowid desc limit 1) as latest_check_status,
+          c.status as latest_check_status,
           row_number() over (partition by l.doll_id, l.region order by s.checked_at desc, s.rowid desc) as region_rank
-        from price_snapshots s join amazon_listings l on l.id = s.listing_id
+        from latest_checks c
+        join amazon_listings l on l.id = c.listing_id
+        join price_snapshots s on s.check_id = c.id
         where l.doll_id in (${placeholders}) and l.status = 'confirmed'
-          and s.id = (select s2.id from price_snapshots s2 where s2.listing_id = s.listing_id order by s2.checked_at desc, s2.rowid desc limit 1)
+          and c.check_rank = 1 and c.status = 'verified'
       )
-      select * from latest_listing_snapshots where region_rank = 1 order by doll_id, region
+      select * from current_listing_snapshots where region_rank = 1 order by doll_id, region
     `).all(...dollIds) as Row[];
     for (const row of rows) {
       const dollId = String(row.doll_id);

@@ -138,7 +138,7 @@ describe('PriceService', () => {
     expect(db.prepare('select status from price_checks where listing_id = ?').get(listing.id)).toEqual({ status: 'no_price' });
   });
 
-  it('records a blocked check without replacing the last verified offer', async () => {
+  it('records a blocked check, hides the old current offer, and keeps its history', async () => {
     db = new DatabaseSync(':memory:'); runMigrations(db);
     const doll = new DollRepository(db).create({ name: 'Robecca Steam' });
     const prices = new PriceRepository(db);
@@ -156,7 +156,8 @@ describe('PriceService', () => {
     await service.refreshDoll(doll.id, ['amazon_uk']);
 
     expect(db.prepare('select status from price_checks where listing_id = ? order by finished_at desc limit 1').get(listing.id)).toEqual({ status: 'blocked' });
-    expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({ priceMinor: 2499, currency: 'GBP' }));
+    expect(prices.current(doll.id)).toEqual([]);
+    expect(prices.history(doll.id, 'all')).toContainEqual(expect.objectContaining({ priceMinor: 2499, currency: 'GBP' }));
   });
 
   it('saves a confirmed Amazon thumbnail without replacing a manual image', async () => {

@@ -21,13 +21,13 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe('PriceRepository', () => {
-  it('stores verified snapshots atomically and keeps them current after a later failure', () => {
+  it.each(['no_price', 'out_of_stock', 'captcha_required'] as const)('keeps history but hides the old amount after a later %s check', (status) => {
     prices.applyCheck({ listingId, status: 'verified', checkedAt: '2026-07-10T10:00:00Z', offer: { offerKind: 'regular', priceMinor: 2499, currency: 'USD', shippingMinor: 0, sellerName: 'Amazon.com', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New', couponText: null, rateToKztMicros: 514_200_000 } });
-    prices.applyCheck({ listingId, status: 'captcha_required', checkedAt: '2026-07-10T11:00:00Z', offer: null });
+    prices.applyCheck({ listingId, status, checkedAt: '2026-07-10T11:00:00Z', offer: null });
 
-    expect(prices.current(dollId)).toEqual([
-      expect.objectContaining({ listingId, priceMinor: 2499, latestCheckStatus: 'captcha_required' }),
-    ]);
+    expect(prices.current(dollId)).toEqual([]);
+    expect(prices.currentForDolls([dollId])[dollId]).toEqual([]);
+    expect(prices.history(dollId, 'all')).toEqual([expect.objectContaining({ listingId, priceMinor: 2499 })]);
     expect(db.prepare('select count(*) as count from price_checks').get()).toEqual({ count: 2 });
     expect(db.prepare('select count(*) as count from price_snapshots').get()).toEqual({ count: 1 });
   });
