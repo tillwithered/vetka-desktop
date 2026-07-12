@@ -47,6 +47,15 @@ describe('CatalogRepository', () => {
     expect(new Set(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).size).toBe(21);
   });
 
+  it('uses a Russian operational name and verified Mattel identity for Robecca', () => {
+    expect(monsterHighSkuCatalog.find((entry) => entry.mattelSku === 'JHK59')).toMatchObject({
+      name: 'Робекка Стим — Boo-riginal Creeproduction',
+      officialName: 'Monster High Boo-Riginal Creeproduction Robecca Steam Doll With Diary, Doll Stand And Pet',
+      mattelUrl: 'https://shop.mattel.com/products/monster-high-boo-riginal-creeproduction-robecca-steam-doll-jhk59',
+      mattelImageUrl: expect.stringContaining('cdn.shopify.com'),
+    });
+  });
+
   it('imports a seed idempotently and creates one doll per SKU', () => {
     expect(catalog.importSeed(seed)).toEqual({ inserted: 1, updated: 0, skipped: 0 });
     expect(catalog.importSeed(seed)).toEqual({ inserted: 0, updated: 1, skipped: 0 });

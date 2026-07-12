@@ -79,7 +79,7 @@ export class CatalogRepository {
           lineName: entry.lineName,
           mattelSku: entry.mattelSku,
           officialName: entry.officialName,
-          mattelUrl: entry.mattelUrl ?? entry.sourceUrl,
+          mattelUrl: entry.mattelUrl,
           mattelImageUrl: entry.mattelImageUrl,
         });
         const now = new Date().toISOString();
