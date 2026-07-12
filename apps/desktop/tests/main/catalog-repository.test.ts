@@ -42,9 +42,9 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe('CatalogRepository', () => {
-  it('ships a 21-item Monster High SKU seed without duplicate SKUs', () => {
-    expect(monsterHighSkuCatalog).toHaveLength(21);
-    expect(new Set(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).size).toBe(21);
+  it('ships a 29-item Monster High SKU seed without duplicate SKUs', () => {
+    expect(monsterHighSkuCatalog).toHaveLength(29);
+    expect(new Set(monsterHighSkuCatalog.map((entry) => entry.mattelSku)).size).toBe(29);
   });
 
   it('uses a Russian operational name and verified Mattel identity for Robecca', () => {
@@ -52,6 +52,15 @@ describe('CatalogRepository', () => {
       name: 'Робекка Стим — Boo-riginal Creeproduction',
       officialName: 'Monster High Boo-Riginal Creeproduction Robecca Steam Doll With Diary, Doll Stand And Pet',
       mattelUrl: 'https://shop.mattel.com/products/monster-high-boo-riginal-creeproduction-robecca-steam-doll-jhk59',
+      mattelImageUrl: expect.stringContaining('cdn.shopify.com'),
+    });
+  });
+
+  it('normalizes imported core dolls to Russian operational names with verified Mattel identity', () => {
+    expect(monsterHighSkuCatalog.find((entry) => entry.mattelSku === 'JHK31')).toMatchObject({
+      name: 'Фрэнки Штейн — Core',
+      officialName: 'Monster High Frankie Stein Fashion Doll in Black Pleather Skirt With Pet Watzie And 7 Accessories',
+      mattelUrl: 'https://shop.mattel.com/products/monster-high-frankie-stein-doll-jhk31',
       mattelImageUrl: expect.stringContaining('cdn.shopify.com'),
     });
   });
