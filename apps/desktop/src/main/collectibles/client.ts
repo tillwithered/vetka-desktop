@@ -1,6 +1,7 @@
-import { parseCollectibleCollection, parseCollectibleProduct, type ParsedCollectible } from './parser';
+import { parseCollectibleCollection, parseCollectibleLanding, parseCollectibleProduct, type ParsedCollectible } from './parser';
 
 export const mattelCreationsCollectionUrl = 'https://creations.mattel.com/collections/monster-high';
+export const mattelCreationsLandingUrl = 'https://creations.mattel.com/pages/monster-high';
 
 export type CollectedProduct = ParsedCollectible & { checkedAt: string };
 export type CollectiblesCollectionResult = {
@@ -43,17 +44,23 @@ export class MattelCreationsClient {
   }
 
   async collect(): Promise<CollectiblesCollectionResult> {
-    let collectionHtml: string;
-    try {
-      collectionHtml = await this.fetchHtml(mattelCreationsCollectionUrl);
-    } catch (error) {
-      return { complete: false, products: [], errors: [{ url: mattelCreationsCollectionUrl, message: this.message(error) }] };
-    }
-
-    const urls = parseCollectibleCollection(collectionHtml, mattelCreationsCollectionUrl);
     const products: CollectedProduct[] = [];
     const errors: CollectiblesCollectionResult['errors'] = [];
-    for (const url of urls) {
+    const urls: string[] = [];
+    let complete = true;
+    for (const source of [
+      { url: mattelCreationsLandingUrl, parse: parseCollectibleLanding },
+      { url: mattelCreationsCollectionUrl, parse: parseCollectibleCollection },
+    ]) {
+      try {
+        urls.push(...source.parse(await this.fetchHtml(source.url), source.url));
+      } catch (error) {
+        complete = false;
+        errors.push({ url: source.url, message: this.message(error) });
+      }
+    }
+    const uniqueUrls = [...new Set(urls)];
+    for (const url of uniqueUrls) {
       try {
         let parsed = parseCollectibleProduct(await this.fetchHtml(url), url);
         if (parsed && 'ambiguous' in parsed) parsed = parseCollectibleProduct(await this.browser.open(url), url);
@@ -63,7 +70,7 @@ export class MattelCreationsClient {
         errors.push({ url, message: this.message(error) });
       }
     }
-    return { complete: true, products, errors };
+    return { complete, products, errors };
   }
 
   private message(error: unknown): string {

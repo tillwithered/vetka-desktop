@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { parseCollectibleCollection, parseCollectibleProduct } from '@/main/collectibles/parser';
+import { parseCollectibleCollection, parseCollectibleLanding, parseCollectibleProduct } from '@/main/collectibles/parser';
 
 const fixture = (name: string) => readFileSync(path.join(__dirname, '..', 'fixtures', 'mattel-creations', name), 'utf8');
 const baseUrl = 'https://creations.mattel.com/collections/monster-high';
@@ -11,6 +11,13 @@ const gozerUrl = 'https://creations.mattel.com/products/monster-high-skullector-
 describe('Mattel Creations parser', () => {
   it('discovers unique doll product URLs and excludes obvious merchandise', () => {
     expect(parseCollectibleCollection(fixture('collection.html'), baseUrl)).toEqual([
+      gozerUrl,
+      'https://creations.mattel.com/products/beetlejuice-waiting-room-2-pack-jcx58',
+    ]);
+  });
+
+  it('discovers featured product links only inside landing-page content sections', () => {
+    expect(parseCollectibleLanding(fixture('landing.html'), 'https://creations.mattel.com/pages/monster-high')).toEqual([
       gozerUrl,
       'https://creations.mattel.com/products/beetlejuice-waiting-room-2-pack-jcx58',
     ]);

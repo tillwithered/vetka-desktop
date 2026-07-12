@@ -45,7 +45,7 @@ describe('OfficialStoreImportService', () => {
 
     const entry = catalog.listAll().find((candidate) => candidate.mattelSku === 'JHK59');
     expect(result).toEqual({ imported: 1, updated: 0, skipped: 0 });
-    expect(entry).toMatchObject({ sourceUrl: 'https://www.amazon.co.uk/dp/B0FK1V67X5', monitorStatus: 'active' });
+    expect(entry).toMatchObject({ sourceUrl: 'https://www.amazon.co.uk/dp/B0FK1V67X5', monitorStatus: 'monitor_only' });
     expect(prices.current(entry!.dollId!)).toContainEqual(expect.objectContaining({ region: 'amazon_uk', priceMinor: 2499, currency: 'GBP' }));
     expect(collector.importOfficialStore).toHaveBeenCalledWith({ dataDir: 'C:/data', regions: ['amazon_uk'] }, expect.any(Function));
   });

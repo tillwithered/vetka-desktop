@@ -44,10 +44,26 @@ export function parseCollectibleCollection(html: string, baseUrl: string): strin
   const $ = load(html);
   const urls: string[] = [];
   const seen = new Set<string>();
-  $('a[href*="/products/"]').each((_index, element) => {
+  $('#collectionApp .collection-grid__product a[href*="/products/"]').each((_index, element) => {
     const label = $(element).text().replace(/\s+/g, ' ').trim();
     if (merchandise.test(label)) return;
     const url = canonicalProductUrl($(element).attr('href') ?? '', baseUrl);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    urls.push(url);
+  });
+  return urls;
+}
+
+export function parseCollectibleLanding(html: string, baseUrl: string): string[] {
+  const $ = load(html);
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  $('[id^="shopify-section-template"] a[href*="/products/"], [id^="shopify-section-template"] [data-href*="/products/"]').each((_index, element) => {
+    const label = $(element).text().replace(/\s+/g, ' ').trim();
+    if (merchandise.test(label)) return;
+    const href = $(element).attr('href') ?? $(element).attr('data-href') ?? '';
+    const url = canonicalProductUrl(href, baseUrl);
     if (!url || seen.has(url)) return;
     seen.add(url);
     urls.push(url);

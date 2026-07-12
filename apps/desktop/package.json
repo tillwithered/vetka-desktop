@@ -15,7 +15,8 @@
     "lint": "eslint --ext .ts,.tsx .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "catalog:audit": "vitest run tests/main/catalog-audit.test.ts"
+    "catalog:audit": "vitest run tests/main/catalog-audit.test.ts",
+    "collectibles:live-check": "vite-node scripts/verify-mattel-creations-live.ts"
   },
   "keywords": [],
   "author": {

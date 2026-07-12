@@ -32,7 +32,7 @@ export class OfficialStoreImportService {
       const existing = this.dependencies.catalog.getBySku(doll.mattelSku);
       this.dependencies.catalog.importSeed([{
         mattelSku: doll.mattelSku, name: doll.name.slice(0, 160), characterName: null, lineName: null,
-        productType: 'official_store', monitorStatus: 'active', requiredTerms: [doll.mattelSku], rejectTerms: ['accessory', 'replacement', 'outfit'],
+        productType: 'official_store', monitorStatus: 'monitor_only', requiredTerms: [doll.mattelSku], rejectTerms: ['accessory', 'replacement', 'outfit'],
         searchQuery: `Monster High ${doll.mattelSku}`, sourceUrl: doll.url, sourceCheckedAt: checkedAt,
         evidence: 'Official Monster High Amazon Store',
       }]);
