@@ -63,6 +63,13 @@ export class PriceService {
   ) {
     const doll = this.dependencies.db.prepare('select * from dolls where id = ?').get(dollId) as Record<string, unknown> | undefined;
     if (!doll) throw new Error('Doll not found');
+    const candidateEvidenceSku = catalogRules?.mattelSku
+      ?? (doll.mattel_sku === null ? null : String(doll.mattel_sku));
+    const evidenceSku = candidateEvidenceSku && this.dependencies.db.prepare(
+      'select 1 from catalog_entries where mattel_sku = ? and doll_id = ?',
+    ).get(candidateEvidenceSku, dollId)
+      ? candidateEvidenceSku
+      : null;
     const effectiveCatalogRules = catalogRules
       ? { ...catalogRules, upcEan: doll.upc_ean === null ? null : String(doll.upc_ean) }
       : undefined;
@@ -95,10 +102,10 @@ export class PriceService {
           ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
         });
       } catch (error) {
-        if (catalogRules && this.dependencies.regionEvidence) {
+        if (evidenceSku && this.dependencies.regionEvidence) {
           this.dependencies.regionEvidence.upsert({
-            mattelSku: catalogRules.mattelSku, dollId, region, status: 'network_error', asin: null,
-            evidenceUrl: amazonSearchEvidenceUrl(region, catalogRules.mattelSku), checkedAt: new Date().toISOString(),
+            mattelSku: evidenceSku, dollId, region, status: 'network_error', asin: null,
+            evidenceUrl: amazonSearchEvidenceUrl(region, evidenceSku), checkedAt: new Date().toISOString(),
             diagnostic: { message: error instanceof Error ? error.message.slice(0, 200) : 'collector failed' },
           });
         }
@@ -109,9 +116,9 @@ export class PriceService {
       Object.assign(combined.regions, result.regions);
 
       for (const [resultRegion, regionResult] of Object.entries(result.regions) as Array<[AmazonRegion, NonNullable<(typeof result.regions)[AmazonRegion]>]>) {
-      if (catalogRules && this.dependencies.regionEvidence) {
+      if (evidenceSku && this.dependencies.regionEvidence) {
         this.dependencies.regionEvidence.upsert({
-          mattelSku: catalogRules.mattelSku, dollId, region: resultRegion,
+          mattelSku: evidenceSku, dollId, region: resultRegion,
           status: regionResult.status as CatalogRegionEvidenceStatus,
           evidenceUrl: regionResult.evidenceUrl, asin: regionResult.asin,
           checkedAt: new Date().toISOString(), diagnostic: regionResult.matchDiagnostic ?? {},

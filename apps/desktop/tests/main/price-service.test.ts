@@ -138,6 +138,46 @@ describe('PriceService', () => {
     expect(db.prepare('select status from price_checks where listing_id = ?').get(listing.id)).toEqual({ status: 'no_price' });
   });
 
+  it('updates regional evidence during a manual doll refresh', async () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const dolls = new DollRepository(db);
+    const catalog = new CatalogRepository(db, dolls);
+    catalog.importSeed([{
+      mattelSku: 'JMB81', name: 'Robecca Steam', characterName: 'Robecca Steam', lineName: 'Core',
+      productType: 'regular', monitorStatus: 'active', requiredTerms: ['Robecca Steam'], rejectTerms: ['outfit'],
+      searchQuery: 'Monster High Robecca Steam JMB81', sourceUrl: 'https://shop.mattel.com/products/jmb81',
+      sourceCheckedAt: '2026-07-12', evidence: 'test', officialName: 'Monster High Robecca Steam Fashion Doll',
+      mattelUrl: 'https://shop.mattel.com/products/jmb81', mattelImageUrl: 'https://cdn.shopify.com/jmb81.jpg',
+    }]);
+    const doll = dolls.get(catalog.getBySku('JMB81')!.dollId!)!;
+    const prices = new PriceRepository(db);
+    const regionEvidence = new CatalogRegionEvidenceRepository(db);
+    prices.ensureListing({
+      dollId: doll.id, region: 'amazon_it', asin: 'B0FJZYDKX9',
+      url: 'https://www.amazon.it/Monster-High-camicetta-domestico-accessori/dp/B0FJZYDKX9?th=1',
+      status: 'confirmed', confirmationSource: 'exact_id',
+    });
+    const collector = { refreshDoll: vi.fn(async () => ({
+      requestId: 'manual-refresh',
+      regions: { amazon_it: {
+        status: 'verified', region: 'amazon_it', asin: 'B0FJZYDKX9', title: 'Monster High Robecca Steam JMB81',
+        regularPrice: { minor: 2999, currency: 'EUR' as const }, primePrice: null, subscriptionPrice: null,
+        couponText: null, seller: null, fulfilledByAmazon: false, availability: 'in_stock' as const,
+        condition: 'New' as const,
+        url: 'https://www.amazon.it/Monster-High-camicetta-domestico-accessori/dp/B0FJZYDKX9?th=1',
+        evidenceUrl: 'https://www.amazon.it/Monster-High-camicetta-domestico-accessori/dp/B0FJZYDKX9?th=1',
+        reviewCandidates: [],
+      } },
+    } as CollectorDollResult)) };
+    const service = new PriceService({ db, prices, regionEvidence, collector, dataDir: 'C:/data', getRate: () => 600_000_000 });
+
+    await service.refreshDoll(doll.id, ['amazon_it']);
+
+    expect(regionEvidence.listForDoll(doll.id)).toEqual([
+      expect.objectContaining({ region: 'amazon_it', status: 'verified', asin: 'B0FJZYDKX9' }),
+    ]);
+  });
+
   it('records a blocked check, hides the old current offer, and keeps its history', async () => {
     db = new DatabaseSync(':memory:'); runMigrations(db);
     const doll = new DollRepository(db).create({ name: 'Robecca Steam' });
