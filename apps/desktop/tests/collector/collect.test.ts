@@ -66,6 +66,30 @@ describe('collectDoll', () => {
     expect(driver.searchViaProxy).toHaveBeenCalledTimes(1);
   });
 
+  it('spends at most one proxy fallback for a region when several confirmed ASINs are blocked', async () => {
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => '<form action="/errors/validateCaptcha"></form>'),
+      openProductViaProxy: vi.fn(async () => '<input id="ASIN" value="B0FIRST001"><span id="productTitle">Unrelated product</span>'),
+      hasProxyRoute: vi.fn(() => true),
+      search: vi.fn(async () => ''),
+    };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'one-proxy-fallback-per-region', dataDir: 'C:/data',
+      doll: { id: 'willow', name: 'Willow Thorne', mattelSku: 'JMB92' },
+      knownListings: [
+        { region: 'amazon_us', asin: 'B0FIRST001', url: 'https://www.amazon.com/dp/B0FIRST001', confirmed: true },
+        { region: 'amazon_us', asin: 'B0SECOND02', url: 'https://www.amazon.com/dp/B0SECOND02', confirmed: true },
+      ],
+      regions: ['amazon_us'], knownAsinsOnly: true,
+      catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(driver.openProduct).toHaveBeenCalledTimes(2);
+    expect(driver.openProductViaProxy).toHaveBeenCalledTimes(1);
+    expect(result.regions.amazon_us).toMatchObject({ status: 'blocked' });
+  });
+
   it('keeps a direct block when that region has no proxy route', async () => {
     const driver: CollectorDriver = {
       openProduct: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'),

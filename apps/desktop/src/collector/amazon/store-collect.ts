@@ -33,14 +33,17 @@ async function readStorePage(
   region: AmazonRegion,
   url: string,
   kind: 'store' | 'product',
-): Promise<string> {
+  allowProxyFallback: boolean,
+): Promise<{ html: string; usedProxyFallback: boolean }> {
   const direct = kind === 'store' ? driver.openStore : driver.openStoreProduct;
   const fallback = kind === 'store' ? driver.openStoreViaProxy : driver.openStoreProductViaProxy;
   let html = await direct(region, url);
-  if (isBlocked(html) && driver.hasProxyRoute?.(region) && fallback) {
+  let usedProxyFallback = false;
+  if (allowProxyFallback && isBlocked(html) && driver.hasProxyRoute?.(region) && fallback) {
     html = await fallback(region, url);
+    usedProxyFallback = true;
   }
-  return html;
+  return { html, usedProxyFallback };
 }
 
 export async function collectOfficialStore(input: {
@@ -54,7 +57,10 @@ export async function collectOfficialStore(input: {
   for (const region of input.regions) {
     input.onProgress?.({ stage: 'searching', region, processed: 0, total: 0 });
     try {
-      const storeHtml = await readStorePage(input.driver, region, officialMonsterHighStoreUrls[region], 'store');
+      let proxyFallbackUsed = false;
+      const storeRead = await readStorePage(input.driver, region, officialMonsterHighStoreUrls[region], 'store', !proxyFallbackUsed);
+      proxyFallbackUsed ||= storeRead.usedProxyFallback;
+      const { html: storeHtml } = storeRead;
       if (isBlocked(storeHtml)) {
         result.regions[region] = { status: 'blocked', total: 0, error: blockedError(storeHtml) };
         continue;
@@ -74,7 +80,9 @@ export async function collectOfficialStore(input: {
       for (const [index, link] of links.filter((candidate) => !cardAsins.has(candidate.asin)).entries()) {
         const processed = cards.length + index + 1;
         input.onProgress?.({ stage: 'checking', region, processed, total: links.length });
-        const html = await readStorePage(input.driver, region, link.url, 'product');
+        const productRead = await readStorePage(input.driver, region, link.url, 'product', !proxyFallbackUsed);
+        proxyFallbackUsed ||= productRead.usedProxyFallback;
+        const { html } = productRead;
         if (isBlocked(html)) {
           blockedProductHtml = html;
           break;

@@ -44,6 +44,22 @@ describe('official Store collection', () => {
     expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
   });
 
+  it('spends at most one proxy fallback for a Store region when product pages are blocked', async () => {
+    const driver = {
+      openStore: vi.fn(async () => '<a href="/dp/B0FIRST001">first</a><a href="/dp/B0SECOND02">second</a>'),
+      openStoreViaProxy: vi.fn(async () => ''),
+      openStoreProduct: vi.fn(async () => '<form action="/errors/validateCaptcha"></form>'),
+      openStoreProductViaProxy: vi.fn(async () => '<html><body>not a product</body></html>'),
+      hasProxyRoute: vi.fn(() => true),
+    };
+
+    const result = await collectOfficialStore({ requestId: 'one-store-proxy-fallback', regions: ['amazon_uk'], driver });
+
+    expect(driver.openStoreProduct).toHaveBeenCalledTimes(2);
+    expect(driver.openStoreProductViaProxy).toHaveBeenCalledTimes(1);
+    expect(result.regions.amazon_uk).toMatchObject({ status: 'blocked' });
+  });
+
   it('reports an unusable Store response instead of completing with zero collectible cards', async () => {
     const driver = {
       openStore: vi.fn(async () => '<html><body><h1>Monster High Store</h1></body></html>'),

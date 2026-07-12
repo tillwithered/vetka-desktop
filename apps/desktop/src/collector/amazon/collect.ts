@@ -23,14 +23,17 @@ async function readProductPage(
   region: AmazonRegion,
   url: string,
   expectedAsin: string,
-): Promise<{ html: string; page: AmazonPageResult }> {
+  allowProxyFallback: boolean,
+): Promise<{ html: string; page: AmazonPageResult; usedProxyFallback: boolean }> {
   let html = await driver.openProduct(region, url);
   let page = parseAmazonProductPage(html, { region, expectedAsin });
-  if (shouldRetryWithProxy(page.status) && driver.hasProxyRoute?.(region) && driver.openProductViaProxy) {
+  let usedProxyFallback = false;
+  if (allowProxyFallback && shouldRetryWithProxy(page.status) && driver.hasProxyRoute?.(region) && driver.openProductViaProxy) {
     html = await driver.openProductViaProxy(region, url);
     page = parseAmazonProductPage(html, { region, expectedAsin });
+    usedProxyFallback = true;
   }
-  return { html, page };
+  return { html, page, usedProxyFallback };
 }
 
 async function readSearchPage(
@@ -56,6 +59,7 @@ export async function collectDoll(
   const result: CollectorDollResult = { requestId: request.requestId, regions: {} };
 
   for (const region of request.regions) {
+    let proxyFallbackUsed = false;
     const listings = [...request.knownListings]
       .filter((listing) => listing.confirmed)
       .sort((left, right) => Number(right.region === region) - Number(left.region === region))
@@ -65,7 +69,13 @@ export async function collectDoll(
     for (const listing of listings) {
       progress('checking', region);
       const url = listing.region === region ? listing.url : `https://${amazonRegions[region].host}/dp/${listing.asin}`;
-      const { html, page } = await readProductPage(driver, region, url, listing.asin);
+      const allowProxyFallback = !proxyFallbackUsed;
+      const read = await readProductPage(driver, region, url, listing.asin, allowProxyFallback);
+      proxyFallbackUsed ||= read.usedProxyFallback;
+      const page = !allowProxyFallback && shouldRetryWithProxy(read.page.status)
+        ? { ...read.page, status: 'blocked' as const }
+        : read.page;
+      const { html } = read;
       let matchDiagnostic;
       if (page.status === 'verified' && request.catalogRules) {
         const match = matchCatalogOffer(request.catalogRules, {
@@ -107,11 +117,10 @@ export async function collectDoll(
       .slice(0, 5);
     const candidates = [];
     const seen = new Set<string>();
-    let searchProxyFallbackUsed = false;
     for (const term of terms) {
       progress('searching', region);
-      const { html: searchHtml, usedProxyFallback } = await readSearchPage(driver, region, term, !searchProxyFallbackUsed);
-      searchProxyFallbackUsed ||= usedProxyFallback;
+      const { html: searchHtml, usedProxyFallback } = await readSearchPage(driver, region, term, !proxyFallbackUsed);
+      proxyFallbackUsed ||= usedProxyFallback;
       if (isAmazonCollectorBlocked(searchHtml) || isAmazonCaptcha(searchHtml)) {
         result.regions[region] = {
           status: 'blocked', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
@@ -131,12 +140,18 @@ export async function collectDoll(
           seen.add(candidate.asin);
         }
       }
-      if (candidates.length >= 12 || searchProxyFallbackUsed) break;
+      if (candidates.length >= 12 || proxyFallbackUsed) break;
     }
 
     for (const candidate of candidates) {
       progress('checking', region);
-      const { html, page } = await readProductPage(driver, region, candidate.canonicalUrl, candidate.asin);
+      const allowProxyFallback = !proxyFallbackUsed;
+      const read = await readProductPage(driver, region, candidate.canonicalUrl, candidate.asin, allowProxyFallback);
+      proxyFallbackUsed ||= read.usedProxyFallback;
+      const page = !allowProxyFallback && shouldRetryWithProxy(read.page.status)
+        ? { ...read.page, status: 'blocked' as const }
+        : read.page;
+      const { html } = read;
       if (page.status !== 'verified') continue;
       const match = request.catalogRules
         ? matchCatalogOffer(request.catalogRules, { title: page.title, evidenceText: `${page.title ?? ''} ${html}`, condition: page.condition })
