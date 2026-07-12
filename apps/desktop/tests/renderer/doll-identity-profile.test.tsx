@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { DollIdentityProfile } from '@/renderer/features/dolls/doll-identity-profile';
@@ -21,10 +21,14 @@ describe('DollIdentityProfile', () => {
     expect(screen.getByText('194735183302')).toBeInTheDocument();
   });
 
-  it('uses a neutral placeholder and em dash for absent identifiers', () => {
-    render(<DollIdentityProfile doll={{ ...doll, imagePath: null, mattelSku: null, upcEan: null }} />);
-    expect(screen.getByLabelText('Нет фото куклы')).toBeInTheDocument();
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+  it('uses a neutral placeholder and omits unsourced optional facts', () => {
+    const view = render(<DollIdentityProfile doll={{ ...doll, imagePath: null, generation: null, mattelSku: null, upcEan: null, officialName: null }} />);
+    const profile = within(view.container);
+    expect(profile.getByLabelText('Нет фото куклы')).toBeInTheDocument();
+    expect(profile.queryByText('Поколение')).not.toBeInTheDocument();
+    expect(profile.queryByText('Mattel SKU')).not.toBeInTheDocument();
+    expect(profile.queryByText('UPC / EAN')).not.toBeInTheDocument();
+    expect(profile.queryByText('Официальное название')).not.toBeInTheDocument();
   });
 
   it('shows the official English Mattel title and compact source link', () => {

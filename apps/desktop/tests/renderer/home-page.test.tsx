@@ -20,13 +20,13 @@ describe('HomePage', () => {
     expect(screen.getAllByRole('button', { name: 'Добавить куклу' }).length).toBeGreaterThan(0);
   });
 
-  it('counts favorite dolls with stale prices instead of showing a hard-coded zero', async () => {
+  it('counts favorite dolls with overdue prices instead of showing a hard-coded zero', async () => {
     window.vetka.dolls.list = vi.fn(async () => ({ ok: true as const, data: [doll] }));
     window.vetka.prices.current = vi.fn(async () => ({ ok: true as const, data: [stalePrice] }));
 
     render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><HomePage /></QueryClientProvider></MemoryRouter>);
 
-    expect(await screen.findByText('Нет цены или данные старше суток')).toBeInTheDocument();
+    expect(await screen.findByText('Нет цены или проверка просрочена')).toBeInTheDocument();
     expect(screen.getByText('Нужна проверка').parentElement).toHaveTextContent('1');
   });
 });

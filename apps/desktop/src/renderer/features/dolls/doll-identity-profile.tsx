@@ -17,6 +17,7 @@ export function DollIdentityProfile({ doll }: { doll: Doll }) {
     { label: 'UPC / EAN', value: doll.upcEan },
     { label: 'Официальное название', value: doll.officialName, fullWidth: true },
   ];
+  const sourcedFacts = facts.filter((fact) => Boolean(fact.value));
 
   return (
     <Card>
@@ -36,7 +37,7 @@ export function DollIdentityProfile({ doll }: { doll: Doll }) {
         </div>
         <Separator />
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-          {facts.map((fact) => <div key={fact.label} className={fact.fullWidth ? 'col-span-2 min-w-0 space-y-0.5' : 'min-w-0 space-y-0.5'}><dt className="text-xs text-muted-foreground">{fact.label}</dt><dd className={fact.fullWidth ? 'break-words font-medium leading-snug' : 'truncate font-medium'}>{fact.value ?? '—'}</dd></div>)}
+          {sourcedFacts.map((fact) => <div key={fact.label} className={fact.fullWidth ? 'col-span-2 min-w-0 space-y-0.5' : 'min-w-0 space-y-0.5'}><dt className="text-xs text-muted-foreground">{fact.label}</dt><dd className={fact.fullWidth ? 'break-words font-medium leading-snug' : 'truncate font-medium'}>{fact.value}</dd></div>)}
         </dl>
         {doll.mattelUrl ? <Button asChild size="sm" variant="outline" className="w-fit"><a href={doll.mattelUrl} target="_blank" rel="noreferrer">Открыть на Mattel<ExternalLinkIcon /></a></Button> : null}
       </CardContent>

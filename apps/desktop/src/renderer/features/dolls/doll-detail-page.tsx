@@ -21,11 +21,13 @@ export function DollDetailPage() {
   const client = useQueryClient();
   const doll = useQuery({ queryKey: ['doll', id], queryFn: async () => unwrap(await window.vetka.dolls.get(id)) });
   const prices = useQuery({ queryKey: ['prices', id], queryFn: async () => unwrap(await window.vetka.prices.current(id)) });
+  const regions = useQuery({ queryKey: ['price-regions', id], queryFn: async () => unwrap(await window.vetka.prices.regions(id)) });
   const history = useQuery({ queryKey: ['history', id, range], queryFn: async () => unwrap(await window.vetka.prices.history(id, range)) });
   const refresh = useMutation({
     mutationFn: async () => unwrap(await window.vetka.catalog.refreshNow()),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ['prices', id] });
+      await client.invalidateQueries({ queryKey: ['price-regions', id] });
       await client.invalidateQueries({ queryKey: ['history', id] });
       toast.success('Цены Monster High Store обновлены');
     },
@@ -42,7 +44,7 @@ export function DollDetailPage() {
       <PageHeader title={doll.data.name} description={metadata} meta={doll.data.generation ? <Badge variant="secondary">{doll.data.generation}</Badge> : undefined} actions={<><Button size="icon-sm" variant={doll.data.isFavorite ? 'secondary' : 'ghost'} aria-label="Избранное" onClick={() => favorite.mutate()}><HeartIcon className={doll.data.isFavorite ? 'fill-current' : ''} /></Button><Button size="sm" variant="secondary" onClick={() => refresh.mutate()} disabled={refresh.isPending}><RefreshCwIcon className={refresh.isPending ? 'animate-spin' : ''} />{refresh.isPending ? 'Проверяю…' : 'Обновить цены'}</Button><CreateOrderSheet prices={prices.data ?? []} /></>} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,1fr)]">
         <DollIdentityProfile doll={doll.data} />
-        <Card><CardHeader><CardTitle>Регионы Amazon</CardTitle><CardDescription>Подтверждённые предложения в состоянии New</CardDescription></CardHeader><CardContent><RegionalOfferList prices={prices.data ?? []} /></CardContent></Card>
+        <Card><CardHeader><CardTitle>Регионы Amazon</CardTitle><CardDescription>Текущая цена или проверяемое подтверждение её отсутствия</CardDescription></CardHeader><CardContent><RegionalOfferList states={regions.data ?? []} loading={regions.isLoading} error={regions.isError} /></CardContent></Card>
       </div>
       <ChartCard title="История цены" description="Сохранённая стоимость на момент проверки"><PriceHistoryChart points={history.data ?? []} range={range} onRangeChange={setRange} /></ChartCard>
     </section>
