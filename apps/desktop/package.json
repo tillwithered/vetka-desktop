@@ -16,6 +16,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "catalog:audit": "vitest run tests/main/catalog-audit.test.ts",
+    "catalog:coverage": "vite-node scripts/verify-amazon-catalog-coverage.ts",
     "collectibles:live-check": "vite-node scripts/verify-mattel-creations-live.ts"
   },
   "keywords": [],
