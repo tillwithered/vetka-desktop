@@ -32,10 +32,10 @@ describe('matchCatalogOffer', () => {
 
   it('confirms an exact SKU together with doll context', () => {
     expect(matchCatalogOffer(rules, {
-      title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB92 Monster High', condition: 'New',
+      title: 'Monster High Willow Thorne Moonspell Magic Doll', evidenceText: 'Model JMB92 Monster High', modelNumber: 'JMB92', condition: 'New',
     })).toMatchObject({ status: 'verified' });
     expect(matchCatalogOffer(rules, {
-      title: 'Monster High Willow Thorne outfit', evidenceText: 'Model JMB92 Monster High', condition: 'New',
+      title: 'Monster High Willow Thorne outfit', evidenceText: 'Model JMB92 Monster High', modelNumber: 'JMB92', condition: 'New',
     })).toMatchObject({ status: 'rejected', reason: 'reject_term' });
     expect(matchCatalogOffer(rules, {
       title: 'Willow Thorne', evidenceText: 'Model JMB93', condition: 'New',
@@ -46,13 +46,14 @@ describe('matchCatalogOffer', () => {
     expect(matchCatalogOffer(rules, {
       title: 'Monster High Willow Thorne Moonspell Magic Doll',
       evidenceText: 'Model JMB92 Customers also viewed an outfit accessory only',
+      modelNumber: 'JMB92',
       condition: 'New',
     })).toMatchObject({ status: 'verified' });
   });
 
   it('uses the fact triangle and rejects a single weak fact', () => {
     expect(matchCatalogOffer(rules, {
-      title: 'Willow Thorne collector doll', evidenceText: 'EAN 194735123456', condition: 'New',
+      title: 'Willow Thorne collector doll', evidenceText: 'EAN 194735123456', upcEan: '194735123456', condition: 'New',
     })).toMatchObject({ status: 'verified', facts: { upcEan: true, title: true } });
     expect(matchCatalogOffer(rules, {
       title: 'Willow Thorne', evidenceText: 'a random product', condition: 'New',
@@ -62,6 +63,17 @@ describe('matchCatalogOffer', () => {
   it('rejects Hunter x Hunter before it can become a catalog price', () => {
     expect(matchCatalogOffer(rules, {
       title: 'Hunter x Hunter HGC29 Figure', evidenceText: 'Model HGC29 anime figure', condition: 'New',
+    })).toMatchObject({ status: 'rejected', reason: 'insufficient_facts' });
+  });
+
+  it('ignores a target SKU that appears only in recommendations', () => {
+    expect(matchCatalogOffer({
+      mattelSku: 'HYV90', requiredTerms: ['Operetta', 'Creeproduction'], rejectTerms: ['outfit'],
+    }, {
+      title: 'Monster High Lagoona Blue Gore-Geous Oasis Doll JDR51',
+      evidenceText: 'Customers also viewed Monster High Operetta HYV90 Creeproduction Doll',
+      modelNumber: 'JDR51',
+      condition: 'New',
     })).toMatchObject({ status: 'rejected', reason: 'insufficient_facts' });
   });
 });

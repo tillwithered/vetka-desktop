@@ -29,6 +29,7 @@ export type AmazonPageResult = {
   condition: 'New' | null;
   imageUrl?: string | null;
   modelNumber?: string | null;
+  upcEan?: string | null;
 };
 
 const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
@@ -45,6 +46,7 @@ const emptyResult = (status: AmazonPageStatus): AmazonPageResult => ({
   condition: null,
   imageUrl: null,
   modelNumber: null,
+  upcEan: null,
 });
 
 export function isAmazonCollectorBlocked(html: string): boolean {
@@ -130,6 +132,7 @@ export function parseAmazonProductPage(
   base.title = title;
   base.imageUrl = $('#landingImage').attr('src') ?? $('#imgTagWrapperId img').first().attr('src') ?? null;
   base.modelNumber = mattelSku(productDetail($, [/item model number/i, /^model number$/i, /manufacturer part number/i]));
+  base.upcEan = productDetail($, [/^upc$/i, /^ean$/i, /global trade identification number/i])?.match(/\b\d{8,14}\b/)?.[0] ?? null;
   if (!asin || asin !== context.expectedAsin.toUpperCase()) return { ...base, status: 'identity_mismatch' };
 
   const config = amazonRegions[context.region];
@@ -179,5 +182,6 @@ export function parseAmazonProductPage(
     condition: condition ?? 'New',
     imageUrl: base.imageUrl,
     modelNumber: base.modelNumber,
+    upcEan: base.upcEan,
   };
 }

@@ -7,8 +7,11 @@ import { verifiedAmazonListings } from '@/main/catalog/listing-seed';
 describe('retail catalog audit', () => {
   it('accepts the production catalog and trusted listing seeds', () => {
     expect(auditRetailCatalog(monsterHighSkuCatalog, verifiedAmazonListings)).toEqual([]);
-    expect(verifiedAmazonListings).toHaveLength(80);
+    expect(verifiedAmazonListings).toHaveLength(115);
     expect(verifiedAmazonListings.filter((listing) => listing.mattelSku === 'JHK29').map((listing) => listing.region).sort()).toEqual([
+      'amazon_de', 'amazon_es', 'amazon_it', 'amazon_uk', 'amazon_us',
+    ]);
+    expect(verifiedAmazonListings.filter((listing) => listing.mattelSku === 'JMG74').map((listing) => listing.region).sort()).toEqual([
       'amazon_de', 'amazon_es', 'amazon_it', 'amazon_uk', 'amazon_us',
     ]);
   });
@@ -29,8 +32,18 @@ describe('retail catalog audit', () => {
     expect(issues.map((issue) => issue.code)).toEqual([
       'missing_mattel_identity',
       'listing_unknown_sku',
+      'listing_identity_conflict',
       'duplicate_sku_region',
+      'listing_identity_conflict',
       'invalid_listing_url',
     ]);
+  });
+
+  it('rejects one regional ASIN assigned to different Mattel SKUs', () => {
+    const listing = verifiedAmazonListings[0]!;
+    const otherSku = monsterHighSkuCatalog.find((entry) => entry.mattelSku !== listing.mattelSku)!.mattelSku;
+
+    expect(auditRetailCatalog(monsterHighSkuCatalog, [listing, { ...listing, mattelSku: otherSku }]))
+      .toContainEqual({ code: 'listing_identity_conflict', key: `${listing.region}:${listing.asin}` });
   });
 });

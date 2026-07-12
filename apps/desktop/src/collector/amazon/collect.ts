@@ -83,6 +83,8 @@ export async function collectDoll(
           title: page.title,
           evidenceText: `${page.title ?? ''} ${html}`,
           condition: page.condition,
+          modelNumber: page.modelNumber,
+          upcEan: page.upcEan,
         });
         matchDiagnostic = match;
         if (match.status !== 'verified') continue;
@@ -161,7 +163,13 @@ export async function collectDoll(
       const { html } = read;
       if (page.status !== 'verified') continue;
       const match = request.catalogRules
-        ? matchCatalogOffer(request.catalogRules, { title: page.title, evidenceText: `${page.title ?? ''} ${html}`, condition: page.condition })
+        ? matchCatalogOffer(request.catalogRules, {
+            title: page.title,
+            evidenceText: `${page.title ?? ''} ${html}`,
+            condition: page.condition,
+            modelNumber: page.modelNumber,
+            upcEan: page.upcEan,
+          })
         : matchAmazonProduct(request.doll, candidate);
       if (match.status !== 'verified') continue;
       result.regions[region] = { ...page, region, url: candidate.canonicalUrl, reviewCandidates: [], matchDiagnostic: match };

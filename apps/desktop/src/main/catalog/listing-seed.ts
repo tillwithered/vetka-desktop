@@ -41,6 +41,14 @@ const products: readonly { mattelSku: string; asin: string; regions: readonly Am
   { mattelSku: 'JMB89', asin: 'B0G43TFK86', regions: allRegions },
   { mattelSku: 'JMB91', asin: 'B0G43YY3Y7', regions: allRegions },
   { mattelSku: 'JMB90', asin: 'B0G43X7594', regions: ['amazon_uk', 'amazon_de', 'amazon_es', 'amazon_it'] },
+  { mattelSku: 'JHK46', asin: 'B0G44LN98J', regions: allRegions },
+  { mattelSku: 'JHK57', asin: 'B0FK1NN8N5', regions: allRegions },
+  { mattelSku: 'JKD76', asin: 'B0G43TN8YC', regions: allRegions },
+  { mattelSku: 'JMB81', asin: 'B0FJZYDKX9', regions: ['amazon_us', 'amazon_uk', 'amazon_de', 'amazon_es'] },
+  { mattelSku: 'JMG65', asin: 'B0G27XGD8G', regions: ['amazon_de', 'amazon_es', 'amazon_it'] },
+  { mattelSku: 'JMG66', asin: 'B0G27VB4Z7', regions: ['amazon_de', 'amazon_es', 'amazon_it'] },
+  { mattelSku: 'JMG73', asin: 'B0G28B9NGD', regions: allRegions },
+  { mattelSku: 'JMG74', asin: 'B0G27W9XKV', regions: allRegions },
 ];
 
 export const verifiedAmazonListings: readonly VerifiedAmazonListingSeed[] = products.flatMap((product) => product.regions.map((region) => ({

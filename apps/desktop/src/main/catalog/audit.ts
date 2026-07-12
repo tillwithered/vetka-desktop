@@ -4,7 +4,7 @@ import type { CatalogSeedEntry } from './repository';
 import type { VerifiedAmazonListingSeed } from './listing-seed';
 
 export type CatalogAuditIssue = {
-  code: 'missing_mattel_identity' | 'listing_unknown_sku' | 'duplicate_sku_region' | 'invalid_listing_url';
+  code: 'missing_mattel_identity' | 'listing_unknown_sku' | 'duplicate_sku_region' | 'listing_identity_conflict' | 'invalid_listing_url';
   key: string;
 };
 
@@ -23,11 +23,16 @@ export function auditRetailCatalog(
   }
 
   const listingKeys = new Set<string>();
+  const identityOwners = new Map<string, string>();
   for (const listing of listings) {
     const key = `${listing.mattelSku}:${listing.region}`;
+    const identityKey = `${listing.region}:${listing.asin}`;
     if (!knownSkus.has(listing.mattelSku)) issues.push({ code: 'listing_unknown_sku', key });
     if (listingKeys.has(key)) issues.push({ code: 'duplicate_sku_region', key });
     listingKeys.add(key);
+    const owner = identityOwners.get(identityKey);
+    if (owner && owner !== listing.mattelSku) issues.push({ code: 'listing_identity_conflict', key: identityKey });
+    else identityOwners.set(identityKey, listing.mattelSku);
     try {
       const normalized = normalizeAmazonUrl(listing.url);
       if (normalized.region !== listing.region || normalized.asin !== listing.asin) {

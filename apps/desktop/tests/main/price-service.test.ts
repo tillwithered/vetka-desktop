@@ -85,6 +85,27 @@ describe('PriceService', () => {
     expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({ asin: 'B0CMGDLQC9', priceMinor: 3499 }));
   });
 
+  it('continues with other marketplaces after one regional collector failure', async () => {
+    db = new DatabaseSync(':memory:'); runMigrations(db);
+    const doll = new DollRepository(db).create({ name: 'Willow Thorne', mattelSku: 'JMB92' });
+    const prices = new PriceRepository(db);
+    const collector = { refreshDoll: vi.fn(async (input: CollectorRequestInput) => {
+      const region = input.regions[0]!;
+      if (region === 'amazon_us') throw new Error('US timeout');
+      return {
+        requestId: 'regional-recovery',
+        regions: { amazon_es: { status: 'verified', region: 'amazon_es', asin: 'B0G43YKFL4', title: 'Moonspell Magic Willow Thorne JMB92', regularPrice: { minor: 2999, currency: 'EUR' as const }, primePrice: null, subscriptionPrice: null, couponText: null, seller: null, fulfilledByAmazon: false, availability: 'in_stock' as const, condition: 'New' as const, url: 'https://www.amazon.es/dp/B0G43YKFL4', reviewCandidates: [] } },
+      } as CollectorDollResult;
+    }) };
+    const service = new PriceService({ db, prices, collector, dataDir: 'C:/data', getRate: () => 600_000_000 });
+    const entry: CatalogEntry = { mattelSku: 'JMB92', name: 'Willow Thorne', characterName: 'Willow Thorne', lineName: 'Moonspell Magic', productType: 'regular', monitorStatus: 'active', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'], searchQuery: 'Monster High JMB92', sourceUrl: null, sourceCheckedAt: '2026-07-10', evidence: 'test', dollId: doll.id };
+
+    await expect(service.refreshCatalogEntry(entry, ['amazon_us', 'amazon_es'])).rejects.toThrow('amazon_us');
+
+    expect(collector.refreshDoll).toHaveBeenCalledTimes(2);
+    expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({ region: 'amazon_es', priceMinor: 2999 }));
+  });
+
   it('records a no-price check for a confirmed listing instead of leaving the result invisible', async () => {
     db = new DatabaseSync(':memory:'); runMigrations(db);
     const doll = new DollRepository(db).create({ name: 'Catty Noir' });

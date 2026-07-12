@@ -70,24 +70,31 @@ export class PriceService {
     const knownRegions = new Set(knownListings.map((listing) => listing.region));
     const orderedRegions = [...regions].sort((left, right) => Number(knownRegions.has(right)) - Number(knownRegions.has(left)));
     const combined = { requestId: '', regions: {} };
+    const regionErrors: string[] = [];
 
     for (const region of orderedRegions) {
-      const result = await this.dependencies.collector.refreshDoll({
-        dataDir: this.dependencies.dataDir,
-        doll: {
-          id: dollId,
-          name: String(doll.name),
-          characterName: doll.character_name === null ? null : String(doll.character_name),
-          lineName: doll.line_name === null ? null : String(doll.line_name),
-          generation: doll.generation === null ? null : String(doll.generation),
-          mattelSku: doll.mattel_sku === null ? null : String(doll.mattel_sku),
-          upcEan: doll.upc_ean === null ? null : String(doll.upc_ean),
-        },
-        knownListings,
-        regions: [region],
-        knownAsinsOnly: !effectiveCatalogRules,
-        ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
-      });
+      let result;
+      try {
+        result = await this.dependencies.collector.refreshDoll({
+          dataDir: this.dependencies.dataDir,
+          doll: {
+            id: dollId,
+            name: String(doll.name),
+            characterName: doll.character_name === null ? null : String(doll.character_name),
+            lineName: doll.line_name === null ? null : String(doll.line_name),
+            generation: doll.generation === null ? null : String(doll.generation),
+            mattelSku: doll.mattel_sku === null ? null : String(doll.mattel_sku),
+            upcEan: doll.upc_ean === null ? null : String(doll.upc_ean),
+          },
+          knownListings,
+          regions: [region],
+          knownAsinsOnly: !effectiveCatalogRules,
+          ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
+        });
+      } catch (error) {
+        regionErrors.push(`${region}: ${error instanceof Error ? error.message : 'collector failed'}`);
+        continue;
+      }
       if (!combined.requestId) combined.requestId = result.requestId;
       Object.assign(combined.regions, result.regions);
 
@@ -146,6 +153,7 @@ export class PriceService {
       if (regionResult.status === 'verified' && regionResult.imageUrl) this.dependencies.db.prepare("update dolls set image_path = coalesce(image_path, ?), image_source = case when image_path is null then 'amazon' else image_source end where id = ?").run(regionResult.imageUrl, dollId);
     }
     }
+    if (regionErrors.length > 0) throw new Error(regionErrors.join(' · '));
     return combined;
   }
 }

@@ -71,15 +71,20 @@ export function matchAmazonProduct(doll: DollIdentity, candidate: AmazonIdentity
 
 export function matchCatalogOffer(
   rules: CatalogOfferRules,
-  candidate: { title: string | null; evidenceText: string; condition: 'New' | null },
+  candidate: {
+    title: string | null;
+    evidenceText: string;
+    condition: 'New' | null;
+    modelNumber?: string | null;
+    upcEan?: string | null;
+  },
 ): MatchDecision {
-  const evidence = normalized(candidate.evidenceText);
   const title = normalized(candidate.title);
   const facts: MatchFacts = {
-    mattelSku: contains(evidence, rules.mattelSku),
-    upcEan: contains(evidence, rules.upcEan),
+    mattelSku: exact(candidate.modelNumber, rules.mattelSku) || contains(title, rules.mattelSku),
+    upcEan: exact(candidate.upcEan, rules.upcEan),
     title: rules.requiredTerms.some((term) => contains(title, term)),
-    dollContext: dollContext(`${candidate.title ?? ''} ${candidate.evidenceText}`),
+    dollContext: dollContext(candidate.title ?? ''),
   };
   if (candidate.condition !== 'New') return { status: 'rejected', score: 0, reason: 'condition_not_new', facts };
   if (rules.rejectTerms.some((term) => title.includes(normalized(term)))) {
