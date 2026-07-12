@@ -37,6 +37,20 @@ describe('Mattel Creations parser', () => {
     });
   });
 
+  it('normalizes schema.org ImageObject data to a bindable image URL', () => {
+    const html = `<script type="application/ld+json">{
+      "@type":"Product",
+      "name":"Monster High Skullector Ghostbusters Gozer Doll",
+      "sku":"JKM54",
+      "image":{"@type":"ImageObject","url":"https://cdn.shopify.com/gozer-object.jpg"},
+      "offers":{"price":"70","priceCurrency":"USD","availability":"https://schema.org/InStock"}
+    }</script>`;
+
+    expect(parseCollectibleProduct(html, gozerUrl)).toMatchObject({
+      imageUrl: 'https://cdn.shopify.com/gozer-object.jpg',
+    });
+  });
+
   it('parses a sold-out doll without treating hidden Add to Bag copy as availability', () => {
     expect(parseCollectibleProduct(fixture('sold-out.html'), 'https://example.invalid')).toMatchObject({
       mattelSku: 'JCX58', lifecycle: 'sold_out', priceMinor: 10000,

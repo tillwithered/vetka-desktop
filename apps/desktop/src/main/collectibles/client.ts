@@ -32,15 +32,18 @@ export class MattelCreationsClient {
   private readonly fetchHtml: (url: string) => Promise<string>;
   private readonly browser: BrowserFallback;
   private readonly now: () => Date;
+  private readonly minimumDiscoveredProducts: number;
 
   constructor(dependencies: {
     fetchHtml?: (url: string) => Promise<string>;
     browser: BrowserFallback;
     now?: () => Date;
+    minimumDiscoveredProducts?: number;
   }) {
     this.fetchHtml = dependencies.fetchHtml ?? directFetchHtml;
     this.browser = dependencies.browser;
     this.now = dependencies.now ?? (() => new Date());
+    this.minimumDiscoveredProducts = dependencies.minimumDiscoveredProducts ?? 1;
   }
 
   async collect(): Promise<CollectiblesCollectionResult> {
@@ -54,22 +57,47 @@ export class MattelCreationsClient {
     ]) {
       try {
         urls.push(...source.parse(await this.fetchHtml(source.url), source.url));
-      } catch (error) {
-        complete = false;
-        errors.push({ url: source.url, message: this.message(error) });
+      } catch (directError) {
+        try {
+          urls.push(...source.parse(await this.browser.open(source.url), source.url));
+        } catch (browserError) {
+          complete = false;
+          errors.push({
+            url: source.url,
+            message: `${this.message(directError)}; browser fallback: ${this.message(browserError)}`.slice(0, 200),
+          });
+        }
       }
     }
     const uniqueUrls = [...new Set(urls)];
-    for (const url of uniqueUrls) {
-      try {
-        let parsed = parseCollectibleProduct(await this.fetchHtml(url), url);
-        if (parsed && 'ambiguous' in parsed) parsed = parseCollectibleProduct(await this.browser.open(url), url);
-        if (parsed && !('ambiguous' in parsed)) products.push({ ...parsed, checkedAt: this.now().toISOString() });
-        else if (parsed && 'ambiguous' in parsed) errors.push({ url, message: 'Mattel product state is ambiguous' });
-      } catch (error) {
-        errors.push({ url, message: this.message(error) });
-      }
+    if (uniqueUrls.length < this.minimumDiscoveredProducts) {
+      complete = false;
+      errors.push({
+        url: mattelCreationsCollectionUrl,
+        message: `Mattel discovery returned only ${uniqueUrls.length} product links; expected at least ${this.minimumDiscoveredProducts}`,
+      });
     }
+    let nextIndex = 0;
+    let browserQueue: Promise<void> = Promise.resolve();
+    const openInBrowser = (url: string): Promise<string> => {
+      const result = browserQueue.then(() => this.browser.open(url));
+      browserQueue = result.then((): void => {}, (): void => {});
+      return result;
+    };
+    const worker = async () => {
+      while (nextIndex < uniqueUrls.length) {
+        const url = uniqueUrls[nextIndex++]!;
+        try {
+          let parsed = parseCollectibleProduct(await this.fetchHtml(url), url);
+          if (parsed && 'ambiguous' in parsed) parsed = parseCollectibleProduct(await openInBrowser(url), url);
+          if (parsed && !('ambiguous' in parsed)) products.push({ ...parsed, checkedAt: this.now().toISOString() });
+          else if (parsed && 'ambiguous' in parsed) errors.push({ url, message: 'Mattel product state is ambiguous' });
+        } catch (error) {
+          errors.push({ url, message: this.message(error) });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, uniqueUrls.length) }, () => worker()));
     return { complete, products, errors };
   }
 

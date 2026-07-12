@@ -85,7 +85,7 @@ export class PriceService {
         },
         knownListings,
         regions: [region],
-        knownAsinsOnly: true,
+        knownAsinsOnly: !effectiveCatalogRules,
         ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
       });
       if (!combined.requestId) combined.requestId = result.requestId;

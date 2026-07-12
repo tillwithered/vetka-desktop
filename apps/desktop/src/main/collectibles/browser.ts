@@ -1,9 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { BrowserContext } from 'playwright-core';
+import type { BrowserContext, Page } from 'playwright-core';
 
 export function shouldBlockMattelResource(resourceType: string): boolean {
   return resourceType === 'image' || resourceType === 'font' || resourceType === 'media';
+}
+
+export async function readStablePageContent(page: Pick<Page, 'content' | 'waitForTimeout'>): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await page.content();
+    } catch (error) {
+      const isNavigating = error instanceof Error && /navigating|changing the content/i.test(error.message);
+      if (!isNavigating || attempt === 4) throw error;
+      await page.waitForTimeout(500);
+    }
+  }
+  throw new Error('Mattel page did not settle');
 }
 
 function findExecutable(environment: NodeJS.ProcessEnv = process.env, resourcesPath: string | undefined = process.resourcesPath): string | null {
@@ -49,7 +62,7 @@ export class DirectMattelBrowser {
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
       await page.waitForTimeout(400);
-      return await page.content();
+      return await readStablePageContent(page);
     } finally {
       await page.close().catch((): undefined => undefined);
     }

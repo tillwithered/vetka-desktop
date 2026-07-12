@@ -56,32 +56,53 @@ export class CollectiblesService {
     this.timer = null;
     const startedAt = this.now().toISOString();
     this.publish({ status: 'running', startedAt, completedAt: this.getState().completedAt, nextRunAt: null, processed: 0, total: 0, lastError: null });
-    const result = await this.dependencies.client.collect();
-    const checkedAt = this.now().toISOString();
-    const total = result.products.length + result.errors.length;
+    try {
+      const result = await this.dependencies.client.collect();
+      const checkedAt = this.now().toISOString();
+      const total = result.products.length + result.errors.length;
 
-    for (const [index, product] of result.products.entries()) {
-      this.dependencies.repository.upsert(product);
-      this.publish({ ...this.getState(), status: 'running', processed: index + 1, total });
+      for (const [index, product] of result.products.entries()) {
+        this.dependencies.repository.upsert(product);
+        this.publish({ ...this.getState(), status: 'running', processed: index + 1, total });
+      }
+      for (const error of result.errors) this.dependencies.repository.recordFailure(error.url, checkedAt);
+      if (result.complete) {
+        this.dependencies.repository.finishCompleteScan([...new Set([
+          ...result.products.map((product) => product.canonicalUrl),
+          ...result.errors.map((error) => error.url),
+        ])]);
+      }
+
+      const completedAt = this.now().toISOString();
+      const state: CollectiblesScanState = {
+        status: 'idle',
+        startedAt,
+        completedAt,
+        nextRunAt: new Date(this.now().getTime() + dayMs).toISOString(),
+        processed: total,
+        total,
+        lastError: result.errors.length > 0
+          ? `${result.errors.length} product checks failed`
+          : result.complete ? null : 'Mattel collection scan incomplete',
+      };
+      this.publish(state);
+      this.start();
+      return state;
+    } catch (error) {
+      const completedAt = this.now().toISOString();
+      const state: CollectiblesScanState = {
+        status: 'idle',
+        startedAt,
+        completedAt,
+        nextRunAt: new Date(this.now().getTime() + 3_600_000).toISOString(),
+        processed: 0,
+        total: 0,
+        lastError: error instanceof Error ? error.message.slice(0, 200) : 'Mattel collection failed',
+      };
+      this.publish(state);
+      this.start();
+      return state;
     }
-    for (const error of result.errors) this.dependencies.repository.recordFailure(error.url, checkedAt);
-    if (result.complete) this.dependencies.repository.finishCompleteScan(result.products.map((product) => product.canonicalUrl));
-
-    const completedAt = this.now().toISOString();
-    const state: CollectiblesScanState = {
-      status: 'idle',
-      startedAt,
-      completedAt,
-      nextRunAt: new Date(this.now().getTime() + dayMs).toISOString(),
-      processed: total,
-      total,
-      lastError: result.errors.length > 0
-        ? `${result.errors.length} product checks failed`
-        : result.complete ? null : 'Mattel collection scan incomplete',
-    };
-    this.publish(state);
-    this.start();
-    return state;
   }
 
   private publish(state: CollectiblesScanState): void {

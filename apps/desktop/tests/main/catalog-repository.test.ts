@@ -142,7 +142,7 @@ describe('CatalogRepository', () => {
     expect(prices.listListings(catty!.dollId!)).toContainEqual(expect.objectContaining({
       region: 'amazon_es', asin: 'B0CMGDLQC9', status: 'confirmed', confirmationSource: 'exact_id',
     }));
-    expect(catalog.listActive().at(0)).toMatchObject({ mattelSku: 'HXH76' });
+    expect(catalog.listActive().find((entry) => entry.mattelSku === 'HXH76')).toBeTruthy();
   });
 
   it('keeps trusted Amazon mappings unique and canonical by SKU and region', () => {

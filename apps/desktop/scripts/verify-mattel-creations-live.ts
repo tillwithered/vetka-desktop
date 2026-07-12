@@ -1,25 +1,33 @@
-import { parseCollectibleCollection, parseCollectibleLanding, parseCollectibleProduct } from '../src/main/collectibles/parser';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
-const collectionUrl = 'https://creations.mattel.com/collections/monster-high';
-const landingUrl = 'https://creations.mattel.com/pages/monster-high';
-const headers = { 'user-agent': 'Vetka Desktop Mattel live verifier/1.0' };
-const [landingResponse, collectionResponse] = await Promise.all([fetch(landingUrl, { headers }), fetch(collectionUrl, { headers })]);
-if (!landingResponse.ok) throw new Error(`Mattel landing returned HTTP ${landingResponse.status}`);
-if (!collectionResponse.ok) throw new Error(`Mattel collection returned HTTP ${collectionResponse.status}`);
-const urls = [...new Set([
-  ...parseCollectibleLanding(await landingResponse.text(), landingUrl),
-  ...parseCollectibleCollection(await collectionResponse.text(), collectionUrl),
-])];
-if (urls.length === 0) throw new Error('Mattel collection returned no doll product links');
+import { DirectMattelBrowser } from '../src/main/collectibles/browser';
+import { MattelCreationsClient } from '../src/main/collectibles/client';
+import { CollectiblesRepository } from '../src/main/collectibles/repository';
+import { runMigrations } from '../src/main/db/migrate';
 
-const verified: string[] = [];
-for (const url of urls.slice(0, 20)) {
-  const productResponse = await fetch(url, { headers });
-  if (!productResponse.ok) continue;
-  const parsed = parseCollectibleProduct(await productResponse.text(), url);
-  if (parsed && !('ambiguous' in parsed)) verified.push(`${parsed.mattelSku ?? 'no-sku'} ${parsed.lifecycle} ${parsed.officialName}`);
-  if (verified.length >= 3) break;
+const dataDir = mkdtempSync(path.join(tmpdir(), 'vetka-mattel-live-'));
+const browser = new DirectMattelBrowser(dataDir);
+const startedAt = Date.now();
+try {
+  const result = await new MattelCreationsClient({ browser, minimumDiscoveredProducts: 20 }).collect();
+  if (result.products.length === 0) throw new Error(`Mattel returned no collectible dolls (${result.errors.map((error) => error.message).join('; ')})`);
+  const db = new DatabaseSync(':memory:');
+  try {
+    runMigrations(db);
+    const repository = new CollectiblesRepository(db);
+    for (const product of result.products) repository.upsert(product);
+    if (repository.list().length !== result.products.length) throw new Error('Mattel products were not persisted completely');
+  } finally {
+    db.close();
+  }
+  process.stdout.write(
+    `Verified ${result.products.length} Mattel Creations products, ${result.errors.length} product errors, complete=${result.complete}, ${Date.now() - startedAt}ms\n`
+    + `${result.products.slice(0, 3).map((product) => `${product.mattelSku ?? 'no-sku'} ${product.lifecycle} ${product.officialName}`).join('\n')}\n`,
+  );
+} finally {
+  await browser.close();
+  rmSync(dataDir, { recursive: true, force: true });
 }
-if (verified.length === 0) throw new Error('Mattel product pages returned no verifiable collector dolls');
-
-process.stdout.write(`Discovered ${urls.length} direct Mattel product links\n${verified.join('\n')}\n`);

@@ -63,6 +63,7 @@ describe('CollectiblesService', () => {
     const service = new CollectiblesService({ repository, client: { collect }, now: () => new Date('2026-07-13T00:00:00.000Z') });
 
     await service.runNow();
+    await service.runNow();
 
     expect(repository.list()).toHaveLength(2);
     expect(repository.list().find((item) => item.canonicalUrl.endsWith('/old'))).toMatchObject({ lastCheckResult: 'error' });
@@ -81,5 +82,21 @@ describe('CollectiblesService', () => {
     await service.runNow();
 
     expect(repository.list({ archived: false })).toHaveLength(1);
+  });
+
+  it('leaves running state and schedules a retry when collection throws', async () => {
+    const service = new CollectiblesService({
+      repository,
+      client: { collect: vi.fn(async () => { throw new Error('Mattel parser crashed'); }) },
+      now: () => new Date('2026-07-13T00:00:00.000Z'),
+    });
+
+    await expect(service.runNow()).resolves.toMatchObject({
+      status: 'idle',
+      completedAt: '2026-07-13T00:00:00.000Z',
+      nextRunAt: '2026-07-13T01:00:00.000Z',
+      lastError: 'Mattel parser crashed',
+    });
+    expect(repository.getScanState().status).toBe('idle');
   });
 });

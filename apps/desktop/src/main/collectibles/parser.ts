@@ -22,9 +22,11 @@ type ProductJson = {
   '@type'?: string;
   name?: string;
   sku?: string;
-  image?: string | string[];
+  image?: ProductImage | ProductImage[];
   offers?: { price?: string | number; priceCurrency?: string; availability?: string } | Array<{ price?: string | number; priceCurrency?: string; availability?: string }>;
 };
+
+type ProductImage = string | { url?: string; contentUrl?: string };
 
 const merchandise = /\b(?:t-?shirt|hoodie|sweatshirt|mug|tote|bag|backpack|beanie|hat|poster|glass|membership|game deck|bracelet|pin set|jersey|pants)\b/i;
 
@@ -118,6 +120,12 @@ function moneyMinor(price: string | number | undefined): number | null {
   return Number.isFinite(amount) ? Math.round(amount * 100) : null;
 }
 
+function productImageUrl(image: ProductJson['image']): string | null {
+  const first = Array.isArray(image) ? image[0] : image;
+  const value = typeof first === 'string' ? first : first?.url ?? first?.contentUrl;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 export function parseCollectibleProduct(
   html: string,
   requestedUrl: string,
@@ -147,7 +155,6 @@ export function parseCollectibleProduct(
 
   const skuText = pageText.match(/SKU#?:\s*([A-Z0-9_-]{4,40})/i)?.[1]?.toUpperCase() ?? null;
   const sku = product?.sku?.trim().toUpperCase() || skuText;
-  const image = Array.isArray(product?.image) ? product.image[0] : product?.image;
   const identity = russianIdentity(officialName);
 
   return {
@@ -161,6 +168,6 @@ export function parseCollectibleProduct(
     lifecycle,
     saleStartsAt: $('time[datetime]').first().attr('datetime') ?? null,
     fangClubOnly,
-    imageUrl: image ?? null,
+    imageUrl: productImageUrl(product?.image),
   };
 }

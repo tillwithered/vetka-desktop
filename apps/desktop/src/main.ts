@@ -148,7 +148,7 @@ app.whenReady().then(async () => {
   });
   const collectiblesRepository = new CollectiblesRepository(database);
   collectiblesBrowser = new DirectMattelBrowser(app.getPath('userData'));
-  const collectiblesClient = new MattelCreationsClient({ browser: collectiblesBrowser });
+  const collectiblesClient = new MattelCreationsClient({ browser: collectiblesBrowser, minimumDiscoveredProducts: 20 });
   collectiblesService = new CollectiblesService({
     repository: collectiblesRepository,
     client: collectiblesClient,

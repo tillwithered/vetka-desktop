@@ -14,10 +14,16 @@ export class AsinPriceRefreshService {
     regions: readonly AmazonRegion[],
     onProgress?: (event: { processed: number; total: number; dollId: string; entry: CatalogEntry | null }) => void,
   ): Promise<{ processed: number; total: number; errors: string[] }> {
-    const entriesByDollId = new Map(this.dependencies.catalog.listAll()
+    const catalogEntries = this.dependencies.catalog.listAll();
+    const entriesByDollId = new Map(catalogEntries
       .filter((entry): entry is CatalogEntry & { dollId: string } => entry.dollId !== null)
       .map((entry) => [entry.dollId, entry]));
-    const dollIds = this.dependencies.prices.listDollIdsWithConfirmedListings();
+    const confirmedDollIds = this.dependencies.prices.listDollIdsWithConfirmedListings();
+    const confirmed = new Set(confirmedDollIds);
+    const activeDollIds = catalogEntries
+      .filter((entry): entry is CatalogEntry & { dollId: string } => entry.monitorStatus === 'active' && entry.dollId !== null)
+      .map((entry) => entry.dollId);
+    const dollIds = [...confirmedDollIds, ...activeDollIds.filter((dollId) => !confirmed.has(dollId))];
     const errors: string[] = [];
 
     for (const [index, dollId] of dollIds.entries()) {
