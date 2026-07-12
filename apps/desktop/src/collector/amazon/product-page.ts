@@ -88,14 +88,6 @@ function mattelSku(value: string | null): string | null {
   return value?.match(/\b[A-Z]{2,4}\d{2,4}\b/i)?.[0]?.toUpperCase() ?? null;
 }
 
-function currencyFor(text: string | null, fallback: AmazonCurrency): AmazonCurrency {
-  if (/\bKZT(?:\b|(?=\d))/i.test(text ?? '')) return 'KZT';
-  if (/[£]|\bGBP\b/i.test(text ?? '')) return 'GBP';
-  if (/[€]|\bEUR\b/i.test(text ?? '')) return 'EUR';
-  if (/[$]|\bUSD\b/i.test(text ?? '')) return 'USD';
-  return fallback;
-}
-
 function structuredPrices($: ReturnType<typeof load>, currency: AmazonCurrency): ParsedMoney[] {
   const prices: ParsedMoney[] = [];
   $('script[type="application/ld+json"]').each((_index, element) => {
@@ -155,11 +147,10 @@ export function parseAmazonProductPage(
   ]);
   const primeText = firstText($, ['[data-vetka-offer="prime"] .a-offscreen']);
   const subscriptionText = firstText($, ['[data-vetka-offer="subscription"] .a-offscreen', '#sns-base-price']);
-  const regularCurrency = currencyFor(regularText, config.currency);
-  const regularPrice = regularText ? parseLocalizedMoney(regularText, regularCurrency) : null;
-  const primePrice = primeText ? parseLocalizedMoney(primeText, currencyFor(primeText, config.currency)) : null;
-  const subscriptionPrice = subscriptionText ? parseLocalizedMoney(subscriptionText, currencyFor(subscriptionText, config.currency)) : null;
-  const structured = regularCurrency === config.currency ? structuredPrices($, config.currency) : [];
+  const regularPrice = regularText ? parseLocalizedMoney(regularText, config.currency) : null;
+  const primePrice = primeText ? parseLocalizedMoney(primeText, config.currency) : null;
+  const subscriptionPrice = subscriptionText ? parseLocalizedMoney(subscriptionText, config.currency) : null;
+  const structured = structuredPrices($, config.currency);
 
   if (regularPrice && structured.some((price) => Math.abs(price.minor - regularPrice.minor) > 1)) {
     return { ...base, status: 'conflict' };

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { BrowserCollectorDriver, canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, profileForProxyRoute, playwrightProxyOptions, shouldBlockAmazonResource, shouldOpenCaptchaWindow, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
+import { BrowserCollectorDriver, canReuseBrowserContext, findBrowserExecutable, isOfficialStoreUrl, isTransientAmazonResponse, marketplacePreferenceCookies, profileForProxyRoute, playwrightProxyOptions, shouldBlockAmazonResource, shouldOpenCaptchaWindow, shouldRetryNavigationError, shouldStabilizeSearchPage } from '@/collector/browser';
 
 const temporaryDirectories: string[] = [];
 function temporaryResources() {
@@ -77,6 +77,22 @@ describe('shouldBlockAmazonResource', () => {
     expect(shouldBlockAmazonResource('image')).toBe(true);
     expect(shouldBlockAmazonResource('font')).toBe(true);
     expect(shouldBlockAmazonResource('media')).toBe(true);
+  });
+});
+
+describe('marketplacePreferenceCookies', () => {
+  it('sets Amazon footer preferences to the marketplace language and currency before a US price read', () => {
+    expect(marketplacePreferenceCookies('amazon_us')).toEqual([
+      { name: 'i18n-prefs', value: 'USD', domain: '.amazon.com', path: '/' },
+      { name: 'lc-main', value: 'en_US', domain: '.amazon.com', path: '/' },
+    ]);
+  });
+
+  it('sets EUR for the German marketplace instead of accepting a Kazakhstan-delivered price', () => {
+    expect(marketplacePreferenceCookies('amazon_de')).toEqual([
+      { name: 'i18n-prefs', value: 'EUR', domain: '.amazon.de', path: '/' },
+      { name: 'lc-main', value: 'de_DE', domain: '.amazon.de', path: '/' },
+    ]);
   });
 });
 

@@ -138,7 +138,7 @@ export class PriceRepository {
 
       if (input.status === 'verified' && input.offer) {
         const offer = input.offer;
-        if (offer.currency !== amazonRegions[listing.region].currency && offer.currency !== 'KZT') throw new Error('Currency does not match Amazon region');
+        if (offer.currency !== amazonRegions[listing.region].currency) throw new Error('Currency does not match Amazon region');
         if (!Number.isSafeInteger(offer.priceMinor) || offer.priceMinor < 0 || !Number.isSafeInteger(offer.rateToKztMicros) || offer.rateToKztMicros <= 0) throw new Error('Invalid verified offer');
         const priceKztMinor = Math.round((offer.priceMinor * offer.rateToKztMicros) / 1_000_000);
         this.db.prepare(`insert into price_snapshots (
@@ -179,7 +179,7 @@ export class PriceRepository {
       fulfilledByAmazon: Number(row.fulfilled_by_amazon) === 1, availability: String(row.availability), condition: 'New' as const,
       couponText: row.coupon_text === null ? null : String(row.coupon_text), rateToKztMicros: Number(row.rate_to_kzt_micros),
       priceKztMinor: Number(row.price_kzt_minor), checkedAt: String(row.checked_at), latestCheckStatus: String(row.latest_check_status),
-    }));
+    })).filter((price) => price.currency === amazonRegions[price.region].currency);
   }
 
   currentForDolls(dollIds: readonly string[]) {
@@ -202,9 +202,12 @@ export class PriceRepository {
     `).all(...dollIds) as Row[];
     for (const row of rows) {
       const dollId = String(row.doll_id);
+      const region = String(row.region) as AmazonRegion;
+      const currency = String(row.currency) as AmazonCurrency;
+      if (currency !== amazonRegions[region].currency) continue;
       result[dollId]!.push({
-        listingId: String(row.listing_id), region: String(row.region) as AmazonRegion, asin: String(row.asin), url: String(row.url),
-        snapshotId: String(row.snapshot_id), offerKind: String(row.offer_kind), priceMinor: Number(row.price_minor), currency: String(row.currency) as AmazonCurrency,
+        listingId: String(row.listing_id), region, asin: String(row.asin), url: String(row.url),
+        snapshotId: String(row.snapshot_id), offerKind: String(row.offer_kind), priceMinor: Number(row.price_minor), currency,
         shippingMinor: row.shipping_minor === null ? null : Number(row.shipping_minor), sellerName: row.seller_name === null ? null : String(row.seller_name),
         fulfilledByAmazon: Number(row.fulfilled_by_amazon) === 1, availability: String(row.availability), condition: 'New' as const,
         couponText: row.coupon_text === null ? null : String(row.coupon_text), rateToKztMicros: Number(row.rate_to_kzt_micros),
@@ -223,6 +226,7 @@ export class PriceRepository {
       where l.doll_id = ? and (? is null or s.checked_at >= ?)
       order by s.checked_at asc
     `).all(dollId, cutoff, cutoff) as Row[];
-    return rows.map((row) => ({ region: String(row.region) as AmazonRegion, listingId: String(row.listing_id), priceMinor: Number(row.price_minor), priceKztMinor: Number(row.price_kzt_minor), currency: String(row.currency), checkedAt: String(row.checked_at) }));
+    return rows.map((row) => ({ region: String(row.region) as AmazonRegion, listingId: String(row.listing_id), priceMinor: Number(row.price_minor), priceKztMinor: Number(row.price_kzt_minor), currency: String(row.currency), checkedAt: String(row.checked_at) }))
+      .filter((price) => price.currency === amazonRegions[price.region].currency);
   }
 }

@@ -32,8 +32,8 @@ describe('PriceRepository', () => {
     expect(db.prepare('select count(*) as count from price_snapshots').get()).toEqual({ count: 1 });
   });
 
-  it('accepts a KZT price rendered by an Amazon global storefront', () => {
-    prices.applyCheck({
+  it('rejects a KZT delivered price for an Amazon US listing', () => {
+    expect(() => prices.applyCheck({
       listingId,
       status: 'verified',
       checkedAt: '2026-07-10T11:00:00Z',
@@ -42,11 +42,21 @@ describe('PriceRepository', () => {
         sellerName: 'Amazon.com', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New',
         couponText: null, rateToKztMicros: 1_000_000,
       },
-    });
+    })).toThrow('Currency does not match Amazon region');
 
-    expect(prices.current(dollId)).toContainEqual(expect.objectContaining({
-      currency: 'KZT', priceKztMinor: 6_627_671,
-    }));
+    expect(prices.current(dollId)).toEqual([]);
+  });
+
+  it('hides a legacy KZT snapshot instead of rendering it as an Amazon US price', () => {
+    db.prepare(`insert into price_checks (id, listing_id, status, adapter_version, started_at, finished_at, diagnostic_json)
+      values ('check-kzt', ?, 'verified', 'legacy', '2026-07-10T11:00:00Z', '2026-07-10T11:00:00Z', '{}')`).run(listingId);
+    db.prepare(`insert into price_snapshots (id, check_id, listing_id, offer_kind, price_minor, currency, shipping_minor,
+      seller_name, fulfilled_by_amazon, availability, condition, coupon_text, rate_to_kzt_micros, price_kzt_minor, checked_at)
+      values ('snapshot-kzt', 'check-kzt', ?, 'regular', 6627671, 'KZT', null, 'Amazon.com', 1, 'in_stock', 'New', null, 1000000, 6627671, '2026-07-10T11:00:00Z')`).run(listingId);
+
+    expect(prices.current(dollId)).toEqual([]);
+    expect(prices.currentForDolls([dollId])[dollId]).toEqual([]);
+    expect(prices.history(dollId, 'all')).toEqual([]);
   });
 
   it.each(['captcha_required', 'conflict', 'parser_changed'] as const)('never snapshots %s', (status) => {

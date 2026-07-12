@@ -45,30 +45,30 @@ describe('parseAmazonProductPage', () => {
     });
   });
 
-  it('keeps a KZT delivered price instead of treating it as a missing price', () => {
+  it('rejects a KZT delivered price instead of treating it as an Amazon US price', () => {
     const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Draculaura</span><div id="corePrice_feature_div"><span class="a-offscreen">KZT 66,276.71</span></div><div id="availability">Only 14 left in stock</div><div id="condition">New</div>';
 
     expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0CXYZ1234' })).toMatchObject({
-      status: 'verified',
-      regularPrice: { minor: 6627671, currency: 'KZT' },
+      status: 'parser_changed',
+      regularPrice: null,
     });
   });
 
-  it('keeps the currency shown on a product page even when it differs from the marketplace default', () => {
+  it('rejects a foreign-currency price shown on a marketplace product page', () => {
     const html = '<input id="ASIN" value="B0FK1V67X5"><span id="productTitle">Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59</span><div id="corePrice_feature_div"><span class="a-offscreen">28,11 GBP</span></div><div id="availability">Auf Lager</div><div id="condition">Neu</div>';
 
     expect(parseAmazonProductPage(html, { region: 'amazon_de', expectedAsin: 'B0FK1V67X5' })).toMatchObject({
-      status: 'verified',
-      regularPrice: { minor: 2811, currency: 'GBP' },
+      status: 'parser_changed',
+      regularPrice: null,
     });
   });
 
-  it('reads a KZT price when Amazon concatenates the currency and amount', () => {
+  it('rejects a concatenated KZT delivered price instead of treating it as USD', () => {
     const html = '<input id="ASIN" value="B0FK18MKKJ"><span id="productTitle">Monster High Venus McFlytrap Boo-riginal Creeproduction Doll JHK58</span><div id="corePrice_feature_div"><span class="a-offscreen">KZT17,039.37</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
 
     expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0FK18MKKJ' })).toMatchObject({
-      status: 'verified',
-      regularPrice: { minor: 1_703_937, currency: 'KZT' },
+      status: 'parser_changed',
+      regularPrice: null,
     });
   });
 

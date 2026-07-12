@@ -82,6 +82,15 @@ export function shouldBlockAmazonResource(resourceType: string): boolean {
   return resourceType === 'image' || resourceType === 'font' || resourceType === 'media';
 }
 
+export function marketplacePreferenceCookies(region: AmazonRegion) {
+  const config = amazonRegions[region];
+  const domain = `.${config.host.replace(/^www\./, '')}`;
+  return [
+    { name: 'i18n-prefs', value: config.currency, domain, path: '/' },
+    { name: 'lc-main', value: config.locale.replace('-', '_'), domain, path: '/' },
+  ];
+}
+
 export function playwrightProxyOptions(route: ProxyRoute | null): { server: string; username?: string; password?: string } | undefined {
   return route ? {
     server: route.server,
@@ -203,6 +212,7 @@ export class BrowserCollectorDriver implements CollectorDriver {
       viewport: { width: 1365, height: 900 },
       proxy: playwrightProxyOptions(route),
     });
+    await context.addCookies(marketplacePreferenceCookies(region));
     await context.route('**/*', (route) => (shouldBlockAmazonResource(route.request().resourceType()) ? route.abort() : route.continue()));
     return context;
   }
