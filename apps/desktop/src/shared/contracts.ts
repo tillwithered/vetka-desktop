@@ -74,6 +74,38 @@ export type Doll = z.output<typeof dollInputSchema> & {
   updatedAt: string;
 };
 
+export type CollectibleLifecycle = 'in_stock' | 'preorder' | 'coming_soon' | 'fang_club' | 'sold_out';
+export type CollectibleCheckResult = 'verified' | 'error';
+export type Collectible = {
+  id: string;
+  mattelSku: string | null;
+  canonicalUrl: string;
+  nameRu: string;
+  officialName: string;
+  lineName: string | null;
+  priceMinor: number | null;
+  currency: string | null;
+  lifecycle: CollectibleLifecycle;
+  saleStartsAt: string | null;
+  fangClubOnly: boolean;
+  imageUrl: string | null;
+  lastCheckResult: CollectibleCheckResult;
+  lastCheckedAt: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CollectiblesScanState = {
+  status: 'idle' | 'running';
+  startedAt: string | null;
+  completedAt: string | null;
+  nextRunAt: string | null;
+  processed: number;
+  total: number;
+  lastError: string | null;
+};
+
 export type ApiError = { code: string; message: string };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
