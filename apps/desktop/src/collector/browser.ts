@@ -144,15 +144,33 @@ export class BrowserCollectorDriver implements CollectorDriver {
   }
   async openStore(region: AmazonRegion, url: string): Promise<string> {
     await this.closeChallenge(region);
-    return this.open(region, url, 'store', this.currentProxyRoute(region), false);
+    return this.open(region, url, 'store', null, false);
+  }
+  async openStoreViaProxy(region: AmazonRegion, url: string): Promise<string> {
+    await this.closeChallenge(region);
+    const route = this.currentProxyRoute(region);
+    if (!route) throw new Error(`No proxy route configured for ${region}`);
+    return this.open(region, url, 'store', route, false);
   }
   async openStoreProduct(region: AmazonRegion, url: string): Promise<string> {
     await this.closeChallenge(region);
-    return this.open(region, url, 'store', this.currentProxyRoute(region), false);
+    return this.open(region, url, 'store', null, false);
+  }
+  async openStoreProductViaProxy(region: AmazonRegion, url: string): Promise<string> {
+    await this.closeChallenge(region);
+    const route = this.currentProxyRoute(region);
+    if (!route) throw new Error(`No proxy route configured for ${region}`);
+    return this.open(region, url, 'store', route, false);
   }
   async search(region: AmazonRegion, term: string): Promise<string> {
     const config = amazonRegions[region];
-    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product', this.currentProxyRoute(region), true);
+    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product', null, false);
+  }
+  async searchViaProxy(region: AmazonRegion, term: string): Promise<string> {
+    const config = amazonRegions[region];
+    const route = this.currentProxyRoute(region);
+    if (!route) throw new Error(`No proxy route configured for ${region}`);
+    return this.open(region, `https://${config.host}/s?k=${encodeURIComponent(term)}`, 'product', route, false);
   }
 
   async closeChallenge(region: AmazonRegion, transport?: BrowserTransport): Promise<void> {

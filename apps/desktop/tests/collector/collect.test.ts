@@ -44,6 +44,28 @@ describe('collectDoll', () => {
     expect(driver.openProductViaProxy).not.toHaveBeenCalled();
   });
 
+  it('retries a search through proxy only after the direct search is blocked', async () => {
+    const product = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Willow Thorne Moonspell Magic Doll JMB92</span><div id="corePrice_feature_div"><span class="a-offscreen">$24.99</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+    const search = '<div data-asin="B0CXYZ1234"><h2><span>Monster High Willow Thorne Moonspell Magic Doll JMB92</span></h2><a href="/dp/B0CXYZ1234"></a></div>';
+    const driver: CollectorDriver = {
+      openProduct: vi.fn(async () => product),
+      openProductViaProxy: vi.fn(async () => ''),
+      search: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'),
+      searchViaProxy: vi.fn(async () => search),
+      hasProxyRoute: vi.fn(() => true),
+    };
+
+    const result = await collectDoll({
+      type: 'refresh-doll', requestId: 'direct-search-then-proxy', dataDir: 'C:/data',
+      doll: { id: 'willow', name: 'Willow Thorne', mattelSku: 'JMB92' }, knownListings: [], regions: ['amazon_us'],
+      catalogRules: { mattelSku: 'JMB92', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'] },
+    }, driver, vi.fn());
+
+    expect(result.regions.amazon_us).toMatchObject({ status: 'verified', asin: 'B0CXYZ1234' });
+    expect(driver.search).toHaveBeenCalledTimes(1);
+    expect(driver.searchViaProxy).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a direct block when that region has no proxy route', async () => {
     const driver: CollectorDriver = {
       openProduct: vi.fn(async () => '<html data-vetka-collector-status="blocked"></html>'),

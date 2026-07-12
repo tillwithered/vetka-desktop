@@ -2,7 +2,7 @@ import type { AmazonRegion } from '@/shared/contracts';
 
 import type { CollectorDollResult, CollectorRequest, CollectorStage } from '../contracts';
 import { matchAmazonProduct, matchCatalogOffer } from './matching';
-import { isAmazonCollectorBlocked, parseAmazonProductPage, shouldRetryWithProxy, type AmazonPageResult } from './product-page';
+import { isAmazonCaptcha, isAmazonCollectorBlocked, parseAmazonProductPage, shouldRetryWithProxy, type AmazonPageResult } from './product-page';
 import { amazonRegions } from './regions';
 import { parseAmazonSearchResults } from './search';
 
@@ -11,6 +11,7 @@ export type CollectorDriver = {
   openProductViaProxy?(region: AmazonRegion, url: string): Promise<string>;
   hasProxyRoute?(region: AmazonRegion): boolean;
   search(region: AmazonRegion, term: string): Promise<string>;
+  searchViaProxy?(region: AmazonRegion, term: string): Promise<string>;
 };
 
 function hasDollSearchContext(title: string): boolean {
@@ -30,6 +31,21 @@ async function readProductPage(
     page = parseAmazonProductPage(html, { region, expectedAsin });
   }
   return { html, page };
+}
+
+async function readSearchPage(
+  driver: CollectorDriver,
+  region: AmazonRegion,
+  term: string,
+  allowProxyFallback: boolean,
+): Promise<{ html: string; usedProxyFallback: boolean }> {
+  let html = await driver.search(region, term);
+  let usedProxyFallback = false;
+  if (allowProxyFallback && (isAmazonCollectorBlocked(html) || isAmazonCaptcha(html)) && driver.hasProxyRoute?.(region) && driver.searchViaProxy) {
+    html = await driver.searchViaProxy(region, term);
+    usedProxyFallback = true;
+  }
+  return { html, usedProxyFallback };
 }
 
 export async function collectDoll(
@@ -91,10 +107,12 @@ export async function collectDoll(
       .slice(0, 5);
     const candidates = [];
     const seen = new Set<string>();
+    let searchProxyFallbackUsed = false;
     for (const term of terms) {
       progress('searching', region);
-      const searchHtml = await driver.search(region, term);
-      if (isAmazonCollectorBlocked(searchHtml)) {
+      const { html: searchHtml, usedProxyFallback } = await readSearchPage(driver, region, term, !searchProxyFallbackUsed);
+      searchProxyFallbackUsed ||= usedProxyFallback;
+      if (isAmazonCollectorBlocked(searchHtml) || isAmazonCaptcha(searchHtml)) {
         result.regions[region] = {
           status: 'blocked', asin: null, title: null, regularPrice: null, primePrice: null, subscriptionPrice: null,
           couponText: null, seller: null, fulfilledByAmazon: false, availability: null, condition: null,
@@ -113,7 +131,7 @@ export async function collectDoll(
           seen.add(candidate.asin);
         }
       }
-      if (candidates.length >= 12) break;
+      if (candidates.length >= 12 || searchProxyFallbackUsed) break;
     }
 
     for (const candidate of candidates) {

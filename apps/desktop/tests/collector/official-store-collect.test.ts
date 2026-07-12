@@ -22,7 +22,7 @@ describe('official Store collection', () => {
     expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
   });
 
-  it('rotates the Store transport once after CAPTCHA and retries the same region', async () => {
+  it('uses the proxy Store request only after the direct Store request receives CAPTCHA', async () => {
     const storeHtml = `
       <article data-asin="B0FK1V67X5">
         <a href="/Monster-High-Robecca/dp/B0FK1V67X5"><img src="https://images.example/robecca.jpg" alt="Monster High Robecca Steam Boo-riginal Creeproduction Doll JHK59"></a>
@@ -31,14 +31,15 @@ describe('official Store collection', () => {
       </article>`;
     const driver = {
       openStore: vi.fn().mockResolvedValueOnce('<form action="/errors/validateCaptcha"></form>').mockResolvedValueOnce(storeHtml),
+      openStoreViaProxy: vi.fn(async () => storeHtml),
       openStoreProduct: vi.fn(async () => ''),
-      advanceProxyRoute: vi.fn(async () => true),
+      hasProxyRoute: vi.fn(() => true),
     };
 
     const result = await collectOfficialStore({ requestId: 'request-2', regions: ['amazon_uk'], driver });
 
-    expect(driver.advanceProxyRoute).toHaveBeenCalledOnce();
-    expect(driver.openStore).toHaveBeenCalledTimes(2);
+    expect(driver.openStore).toHaveBeenCalledOnce();
+    expect(driver.openStoreViaProxy).toHaveBeenCalledOnce();
     expect(result.products).toMatchObject([{ asin: 'B0FK1V67X5', price: { minor: 2499, currency: 'GBP' } }]);
     expect(result.regions.amazon_uk).toEqual({ status: 'completed', total: 1 });
   });
