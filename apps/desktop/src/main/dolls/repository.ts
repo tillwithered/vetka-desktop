@@ -12,6 +12,15 @@ import {
 } from '@/shared/contracts';
 
 type DollRow = Record<string, unknown>;
+export type CatalogDollIdentity = {
+  name: string;
+  characterName: string | null;
+  lineName: string | null;
+  mattelSku: string;
+  officialName: string | null;
+  mattelUrl: string | null;
+  mattelImageUrl: string | null;
+};
 
 const columns = {
   name: 'name',
@@ -135,6 +144,23 @@ export class DollRepository {
     this.db
       .prepare('update dolls set is_favorite = ?, updated_at = ? where id = ?')
       .run(favorite ? 1 : 0, new Date().toISOString(), id);
+    return this.getRequired(id);
+  }
+
+  applyCatalogIdentity(id: string, identity: CatalogDollIdentity): Doll {
+    this.getRequired(id);
+    const now = new Date().toISOString();
+    this.db.prepare(`
+      update dolls set
+        name = ?, character_name = ?, line_name = ?, mattel_sku = ?, official_name = ?, mattel_url = ?,
+        image_path = case when ? is not null and (image_source is null or image_source = 'amazon') then ? else image_path end,
+        image_source = case when ? is not null and (image_source is null or image_source = 'amazon') then 'mattel' else image_source end,
+        updated_at = ?
+      where id = ?
+    `).run(
+      identity.name, identity.characterName, identity.lineName, identity.mattelSku, identity.officialName, identity.mattelUrl,
+      identity.mattelImageUrl, identity.mattelImageUrl, identity.mattelImageUrl, now, id,
+    );
     return this.getRequired(id);
   }
 

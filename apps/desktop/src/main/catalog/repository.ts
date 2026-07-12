@@ -16,6 +16,9 @@ const catalogSeedSchema = z.object({
   sourceUrl: z.string().url().max(2048).nullable().default(null),
   sourceCheckedAt: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
   evidence: z.string().trim().min(1).max(500),
+  officialName: z.string().trim().min(1).max(500).nullable().default(null),
+  mattelUrl: z.string().url().max(2048).nullable().default(null),
+  mattelImageUrl: z.string().url().max(2048).nullable().default(null),
 });
 
 export type CatalogSeedEntry = {
@@ -31,8 +34,16 @@ export type CatalogSeedEntry = {
   sourceUrl?: string | null;
   sourceCheckedAt: string;
   evidence: string;
+  officialName?: string | null;
+  mattelUrl?: string | null;
+  mattelImageUrl?: string | null;
 };
-export type CatalogEntry = z.output<typeof catalogSeedSchema> & { dollId: string | null };
+export type CatalogEntry = Omit<z.output<typeof catalogSeedSchema>, 'officialName' | 'mattelUrl' | 'mattelImageUrl'> & {
+  officialName?: string | null;
+  mattelUrl?: string | null;
+  mattelImageUrl?: string | null;
+  dollId: string | null;
+};
 export type CatalogImportResult = { inserted: number; updated: number; skipped: number };
 
 export class CatalogRepository {
@@ -61,6 +72,15 @@ export class CatalogRepository {
           characterName: entry.characterName,
           lineName: entry.lineName,
           mattelSku: entry.mattelSku,
+        });
+        this.dolls.applyCatalogIdentity(doll.id, {
+          name: entry.name,
+          characterName: entry.characterName,
+          lineName: entry.lineName,
+          mattelSku: entry.mattelSku,
+          officialName: entry.officialName,
+          mattelUrl: entry.mattelUrl ?? entry.sourceUrl,
+          mattelImageUrl: entry.mattelImageUrl,
         });
         const now = new Date().toISOString();
         this.db.prepare(`

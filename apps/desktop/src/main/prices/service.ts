@@ -50,7 +50,7 @@ export class PriceService {
         rateToKztMicros: this.dependencies.getRate(offer.price.currency),
       },
     });
-    if (offer.imageUrl) this.dependencies.db.prepare('update dolls set image_path = coalesce(image_path, ?) where id = ?').run(offer.imageUrl, dollId);
+    if (offer.imageUrl) this.dependencies.db.prepare("update dolls set image_path = coalesce(image_path, ?), image_source = case when image_path is null then 'amazon' else image_source end where id = ?").run(offer.imageUrl, dollId);
   }
 
   private async refresh(
@@ -143,7 +143,7 @@ export class PriceService {
             }
           : null,
       });
-      if (regionResult.status === 'verified' && regionResult.imageUrl) this.dependencies.db.prepare('update dolls set image_path = coalesce(image_path, ?) where id = ?').run(regionResult.imageUrl, dollId);
+      if (regionResult.status === 'verified' && regionResult.imageUrl) this.dependencies.db.prepare("update dolls set image_path = coalesce(image_path, ?), image_source = case when image_path is null then 'amazon' else image_source end where id = ?").run(regionResult.imageUrl, dollId);
     }
     }
     return combined;

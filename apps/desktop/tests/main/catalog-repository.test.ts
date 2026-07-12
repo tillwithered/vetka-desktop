@@ -22,6 +22,9 @@ const seed = [
     sourceUrl: 'https://shop.mattel.com/products/monster-high-moonspell-magic-willow-thorne-doll-jmb92-en-ca',
     sourceCheckedAt: '2026-07-10',
     evidence: 'Mattel official product URL',
+    officialName: 'Monster High Moonspell Magic Willow Thorne Doll',
+    mattelUrl: 'https://shop.mattel.com/products/monster-high-moonspell-magic-willow-thorne-doll-jmb92-en-ca',
+    mattelImageUrl: 'https://cdn.shopify.com/willow.jpg',
   },
 ] as const;
 
@@ -51,6 +54,23 @@ describe('CatalogRepository', () => {
     expect(catalog.listActive()).toEqual([
       expect.objectContaining({ mattelSku: 'JMB92', dollId: expect.any(String), monitorStatus: 'active' }),
     ]);
+  });
+
+  it('applies Mattel identity and image to a seed doll but preserves a manual image', () => {
+    catalog.importSeed([{ ...seed[0], name: 'Виллоу Торн — Moonspell Magic' }]);
+    const willow = dolls.findByMattelSku('JMB92')!;
+    expect(willow).toMatchObject({
+      name: 'Виллоу Торн — Moonspell Magic',
+      officialName: seed[0].officialName,
+      mattelUrl: seed[0].mattelUrl,
+      imagePath: seed[0].mattelImageUrl,
+      imageSource: 'mattel',
+    });
+
+    dolls.update(willow.id, { imagePath: 'C:/manual/willow.jpg' });
+    catalog.importSeed([{ ...seed[0], mattelImageUrl: 'https://cdn.shopify.com/replacement.jpg' }]);
+
+    expect(dolls.get(willow.id)).toMatchObject({ imagePath: 'C:/manual/willow.jpg', imageSource: 'manual' });
   });
 
   it('validates a whole import before writing any row', () => {
