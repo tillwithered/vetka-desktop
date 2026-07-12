@@ -7,11 +7,14 @@ import { verifiedAmazonListings } from '@/main/catalog/listing-seed';
 describe('retail catalog audit', () => {
   it('accepts the production catalog and trusted listing seeds', () => {
     expect(auditRetailCatalog(monsterHighSkuCatalog, verifiedAmazonListings)).toEqual([]);
-    expect(verifiedAmazonListings).toHaveLength(115);
+    expect(verifiedAmazonListings).toHaveLength(116);
     expect(verifiedAmazonListings.filter((listing) => listing.mattelSku === 'JHK29').map((listing) => listing.region).sort()).toEqual([
       'amazon_de', 'amazon_es', 'amazon_it', 'amazon_uk', 'amazon_us',
     ]);
     expect(verifiedAmazonListings.filter((listing) => listing.mattelSku === 'JMG74').map((listing) => listing.region).sort()).toEqual([
+      'amazon_de', 'amazon_es', 'amazon_it', 'amazon_uk', 'amazon_us',
+    ]);
+    expect(verifiedAmazonListings.filter((listing) => listing.mattelSku === 'JMB81').map((listing) => listing.region).sort()).toEqual([
       'amazon_de', 'amazon_es', 'amazon_it', 'amazon_uk', 'amazon_us',
     ]);
   });
