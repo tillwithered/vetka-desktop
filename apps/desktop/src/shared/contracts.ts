@@ -194,6 +194,12 @@ export type VetkaDesktopApi = {
     refreshNow(): Promise<ApiResult<CatalogScanState>>;
     onScanStateChanged(listener: (state: CatalogScanState) => void): () => void;
   };
+  collectibles: {
+    list(filter?: { archived?: boolean; query?: string }): Promise<ApiResult<Collectible[]>>;
+    getScanState(): Promise<ApiResult<CollectiblesScanState>>;
+    refreshNow(): Promise<ApiResult<CollectiblesScanState>>;
+    onScanStateChanged(listener: (state: CollectiblesScanState) => void): () => void;
+  };
   amazon: {
     addListing(dollId: string, url: string): Promise<ApiResult<unknown>>;
     refreshDoll(dollId: string, regions: AmazonRegion[]): Promise<ApiResult<CollectorDollResult>>;

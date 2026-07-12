@@ -8,6 +8,7 @@ import type { PriceService } from '@/main/prices/service';
 import type { OrderRepository } from '@/main/orders/repository';
 import type { CollectorClient } from '@/main/collector/client';
 import type { CatalogScanService } from '@/main/catalog/scan-service';
+import type { CollectiblesService } from '@/main/collectibles/service';
 import { UpdateNotReadyError, type UpdateService } from '@/main/updates/service';
 import { normalizeAmazonUrl } from '@/collector/amazon/url';
 import { channels } from '@/shared/channels';
@@ -37,6 +38,7 @@ type Dependencies = {
   scanService?: Pick<CatalogScanService, 'getState' | 'runNow'>;
   refreshRates?: () => Promise<unknown>;
   proxyTransport?: ProxyTransportRepository;
+  collectibles?: Pick<CollectiblesService, 'list' | 'getState' | 'runNow'>;
 };
 
 const idSchema = z.string().trim().min(1).max(100);
@@ -53,6 +55,7 @@ const orderCreateSchema = z.object({ snapshotId: idSchema, customerContact: z.st
 const orderListSchema = z.object({ query: z.string().trim().max(160).optional(), status: orderStatusSchema.optional() });
 const transitionSchema = z.object({ id: idSchema, status: orderStatusSchema, comment: z.string().trim().max(500).nullable().default(null) });
 const trackingSchema = z.object({ id: idSchema, trackingNumber: z.string().trim().max(160).nullable() });
+const collectiblesListSchema = z.object({ archived: z.boolean().default(false), query: z.string().trim().max(160).optional() }).default({ archived: false });
 
 function success<T>(data: T): ApiResult<T> {
   return { ok: true, data };
@@ -130,6 +133,22 @@ export function registerIpcHandlers(registrar: IpcRegistrar, dependencies: Depen
     try {
       if (!dependencies.scanService) throw new Error('Catalog scanner is unavailable');
       return success(await dependencies.scanService.runNow());
+    } catch (error) {
+      return failure(error);
+    }
+  });
+  registrar.handle(channels.collectiblesList, validated(collectiblesListSchema, (filter) => {
+    if (!dependencies.collectibles) throw new Error('Collectibles catalog is unavailable');
+    return dependencies.collectibles.list(filter);
+  }));
+  registrar.handle(channels.collectiblesGetScanState, () => {
+    if (!dependencies.collectibles) return failure(new Error('Collectibles catalog is unavailable'));
+    return success(dependencies.collectibles.getState());
+  });
+  registrar.handle(channels.collectiblesRefreshNow, async () => {
+    try {
+      if (!dependencies.collectibles) throw new Error('Collectibles catalog is unavailable');
+      return success(await dependencies.collectibles.runNow());
     } catch (error) {
       return failure(error);
     }

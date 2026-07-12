@@ -44,6 +44,16 @@ const api: VetkaDesktopApi = {
       return () => ipcRenderer.removeListener(channels.catalogScanStateChanged, handler);
     },
   },
+  collectibles: {
+    list: (filter = {}) => ipcRenderer.invoke(channels.collectiblesList, filter),
+    getScanState: () => ipcRenderer.invoke(channels.collectiblesGetScanState),
+    refreshNow: () => ipcRenderer.invoke(channels.collectiblesRefreshNow),
+    onScanStateChanged: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state);
+      ipcRenderer.on(channels.collectiblesScanStateChanged, handler);
+      return () => ipcRenderer.removeListener(channels.collectiblesScanStateChanged, handler);
+    },
+  },
   amazon: {
     addListing: (dollId, url) => ipcRenderer.invoke(channels.amazonAddListing, { dollId, url }),
     refreshDoll: (dollId, regions) => ipcRenderer.invoke(channels.amazonRefreshDoll, { dollId, regions }),

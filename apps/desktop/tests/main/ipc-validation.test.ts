@@ -7,6 +7,7 @@ import { registerIpcHandlers, type IpcRegistrar } from '@/main/ipc/register-ipc'
 import { SettingsRepository } from '@/main/settings/repository';
 import { channels } from '@/shared/channels';
 import type { CatalogScanState } from '@/main/catalog/scan-service';
+import type { CollectiblesScanState } from '@/shared/contracts';
 
 let db: DatabaseSync;
 
@@ -72,6 +73,25 @@ describe('validated IPC', () => {
     await expect(handlers.get(channels.catalogRefreshNow)?.({})).resolves.toEqual({ ok: true, data: state });
     expect(scanService.runNow).toHaveBeenCalledTimes(1);
     expect(handlers.get(channels.catalogGetScanState)?.({})).toEqual({ ok: true, data: state });
+  });
+
+  it('lists collectibles and delegates their independent manual refresh', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const state: CollectiblesScanState = { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null };
+    const collectibles = {
+      list: vi.fn(() => [{ id: 'c1', officialName: 'Monster High Gozer Doll' }]),
+      getState: vi.fn(() => state),
+      runNow: vi.fn(async () => state),
+    };
+    registerIpcHandlers({ handle: (channel, handler) => handlers.set(channel, handler) }, {
+      dolls: new DollRepository(db), settings: new SettingsRepository(db), version: () => '1.2.3', collectibles: collectibles as never,
+    });
+
+    await expect(handlers.get(channels.collectiblesList)?.({}, { archived: false, query: 'Gozer' }))
+      .resolves.toMatchObject({ ok: true, data: [{ id: 'c1' }] });
+    expect(collectibles.list).toHaveBeenCalledWith({ archived: false, query: 'Gozer' });
+    expect(handlers.get(channels.collectiblesGetScanState)?.({})).toEqual({ ok: true, data: state });
+    await expect(handlers.get(channels.collectiblesRefreshNow)?.({})).resolves.toEqual({ ok: true, data: state });
   });
 
   it('keeps a bounded collector error instead of a generic operation error', async () => {

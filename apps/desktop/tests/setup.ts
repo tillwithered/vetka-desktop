@@ -56,6 +56,12 @@ const testApi: VetkaDesktopApi = {
     refreshNow: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0 } }),
     onScanStateChanged: () => (): void => undefined,
   },
+  collectibles: {
+    list: async () => ({ ok: true, data: [] }),
+    getScanState: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null } }),
+    refreshNow: async () => ({ ok: true, data: { status: 'idle', startedAt: null, completedAt: null, nextRunAt: null, processed: 0, total: 0, lastError: null } }),
+    onScanStateChanged: () => (): void => undefined,
+  },
   amazon: {
     addListing: async () => ({ ok: true, data: {} }),
     refreshDoll: async () => ({ ok: true, data: { requestId: 'test', regions: {} } }),

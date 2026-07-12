@@ -29,10 +29,16 @@ import { startBackgroundServices } from './main/app-services';
 import { NbkRateService } from './main/rates/service';
 import { acquireSingleInstanceLock } from './main/single-instance';
 import type { CatalogScanState } from './shared/contracts';
+import { CollectiblesRepository } from './main/collectibles/repository';
+import { DirectMattelBrowser } from './main/collectibles/browser';
+import { MattelCreationsClient } from './main/collectibles/client';
+import { CollectiblesService } from './main/collectibles/service';
 
 let database: DatabaseSync | undefined;
 let collector: CollectorClient | undefined;
 let catalogScan: CatalogScanService | undefined;
+let collectiblesService: CollectiblesService | undefined;
+let collectiblesBrowser: DirectMattelBrowser | undefined;
 
 // Squirrel must never leave an old app-X.Y.Z process alive beside the new release.
 const shouldStart = !started && acquireSingleInstanceLock(app, () => {
@@ -140,6 +146,16 @@ app.whenReady().then(async () => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.catalogScanStateChanged, state);
     },
   });
+  const collectiblesRepository = new CollectiblesRepository(database);
+  collectiblesBrowser = new DirectMattelBrowser(app.getPath('userData'));
+  const collectiblesClient = new MattelCreationsClient({ browser: collectiblesBrowser });
+  collectiblesService = new CollectiblesService({
+    repository: collectiblesRepository,
+    client: collectiblesClient,
+    onStateChanged: (state) => {
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channels.collectiblesScanStateChanged, state);
+    },
+  });
   registerIpcHandlers(ipcMain, {
     dolls,
     settings,
@@ -151,15 +167,20 @@ app.whenReady().then(async () => {
     updates,
     scanService: catalogScan,
     refreshRates: () => nbkRates.refresh(),
+    collectibles: collectiblesService,
     version: () => app.getVersion(),
   });
   createWindow();
-  startBackgroundServices({ updates, scan: catalogScan });
+  startBackgroundServices({ updates, scan: catalogScan, collectibles: collectiblesService });
 });
 
 app.on('before-quit', () => {
   catalogScan?.dispose();
   catalogScan = undefined;
+  collectiblesService?.dispose();
+  collectiblesService = undefined;
+  void collectiblesBrowser?.close();
+  collectiblesBrowser = undefined;
   collector?.dispose();
   collector = undefined;
   database?.close();
