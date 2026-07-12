@@ -89,7 +89,7 @@ function mattelSku(value: string | null): string | null {
 }
 
 function currencyFor(text: string | null, fallback: AmazonCurrency): AmazonCurrency {
-  if (/\bKZT\b/i.test(text ?? '')) return 'KZT';
+  if (/\bKZT(?:\b|(?=\d))/i.test(text ?? '')) return 'KZT';
   if (/[£]|\bGBP\b/i.test(text ?? '')) return 'GBP';
   if (/[€]|\bEUR\b/i.test(text ?? '')) return 'EUR';
   if (/[$]|\bUSD\b/i.test(text ?? '')) return 'USD';

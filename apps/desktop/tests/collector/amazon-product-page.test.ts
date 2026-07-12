@@ -63,6 +63,15 @@ describe('parseAmazonProductPage', () => {
     });
   });
 
+  it('reads a KZT price when Amazon concatenates the currency and amount', () => {
+    const html = '<input id="ASIN" value="B0FK18MKKJ"><span id="productTitle">Monster High Venus McFlytrap Boo-riginal Creeproduction Doll JHK58</span><div id="corePrice_feature_div"><span class="a-offscreen">KZT17,039.37</span></div><div id="availability">In Stock</div><div id="condition">New</div>';
+
+    expect(parseAmazonProductPage(html, { region: 'amazon_us', expectedAsin: 'B0FK18MKKJ' })).toMatchObject({
+      status: 'verified',
+      regularPrice: { minor: 1_703_937, currency: 'KZT' },
+    });
+  });
+
   it('reads the current Amazon accessible price when the legacy offscreen span is blank', () => {
     const html = '<input id="ASIN" value="B0CXYZ1234"><span id="productTitle">Monster High Catty Noir Doll HXH76</span><div id="corePrice_feature_div"><span class="a-offscreen"></span><span class="apex-pricetopay-accessibility-label">€34.99</span></div><div id="availability">In stock</div><div id="condition">New</div>';
 

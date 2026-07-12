@@ -65,6 +65,7 @@ export async function collectDoll(
       .sort((left, right) => Number(right.region === region) - Number(left.region === region))
       .filter((listing, index, all) => all.findIndex((candidate) => candidate.asin === listing.asin) === index);
     let accepted = false;
+    let identifiedWithoutOffer: CollectorDollResult['regions'][AmazonRegion] | null = null;
 
     for (const listing of listings) {
       progress('checking', region);
@@ -92,8 +93,14 @@ export async function collectDoll(
         accepted = true;
         break;
       }
+      if (page.asin === listing.asin) identifiedWithoutOffer = result.regions[region];
     }
     if (accepted) continue;
+
+    if (identifiedWithoutOffer) {
+      result.regions[region] = identifiedWithoutOffer;
+      continue;
+    }
 
     if (request.knownAsinsOnly) {
       result.regions[region] = {
