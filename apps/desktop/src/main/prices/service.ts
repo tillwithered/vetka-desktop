@@ -5,12 +5,15 @@ import type { AmazonRegion } from '@/shared/contracts';
 import type { CatalogEntry } from '@/main/catalog/repository';
 import type { AmazonCurrency } from '@/collector/amazon/regions';
 import type { OfficialStoreDoll } from '@/collector/amazon/store';
+import { amazonSearchEvidenceUrl } from '@/collector/amazon/regions';
+import type { CatalogRegionEvidenceRepository, CatalogRegionEvidenceStatus } from '@/main/catalog/region-evidence-repository';
 
 import type { PriceRepository, CheckStatus } from './repository';
 
 type Dependencies = {
   db: DatabaseSync;
   prices: PriceRepository;
+  regionEvidence?: CatalogRegionEvidenceRepository;
   collector: Pick<CollectorClient, 'refreshDoll'>;
   dataDir: string;
   getRate(currency: AmazonCurrency): number;
@@ -92,6 +95,13 @@ export class PriceService {
           ...(effectiveCatalogRules ? { catalogRules: effectiveCatalogRules } : {}),
         });
       } catch (error) {
+        if (catalogRules && this.dependencies.regionEvidence) {
+          this.dependencies.regionEvidence.upsert({
+            mattelSku: catalogRules.mattelSku, dollId, region, status: 'network_error', asin: null,
+            evidenceUrl: amazonSearchEvidenceUrl(region, catalogRules.mattelSku), checkedAt: new Date().toISOString(),
+            diagnostic: { message: error instanceof Error ? error.message.slice(0, 200) : 'collector failed' },
+          });
+        }
         regionErrors.push(`${region}: ${error instanceof Error ? error.message : 'collector failed'}`);
         continue;
       }
@@ -99,6 +109,14 @@ export class PriceService {
       Object.assign(combined.regions, result.regions);
 
       for (const [resultRegion, regionResult] of Object.entries(result.regions) as Array<[AmazonRegion, NonNullable<(typeof result.regions)[AmazonRegion]>]>) {
+      if (catalogRules && this.dependencies.regionEvidence) {
+        this.dependencies.regionEvidence.upsert({
+          mattelSku: catalogRules.mattelSku, dollId, region: resultRegion,
+          status: regionResult.status as CatalogRegionEvidenceStatus,
+          evidenceUrl: regionResult.evidenceUrl, asin: regionResult.asin,
+          checkedAt: new Date().toISOString(), diagnostic: regionResult.matchDiagnostic ?? {},
+        });
+      }
       if (!catalogRules) for (const candidate of regionResult.reviewCandidates) {
         this.dependencies.prices.ensureListing({
           dollId, region: resultRegion, asin: candidate.asin, url: candidate.canonicalUrl, status: 'candidate',
@@ -110,7 +128,7 @@ export class PriceService {
         if (knownListing) {
           this.dependencies.prices.applyCheck({
             listingId: knownListing.id,
-            status: regionResult.status as CheckStatus,
+            status: (regionResult.status === 'not_found' ? 'no_price' : regionResult.status) as CheckStatus,
             checkedAt: new Date().toISOString(),
             offer: null,
             diagnostic: regionResult.matchDiagnostic,

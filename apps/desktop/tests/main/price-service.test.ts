@@ -6,6 +6,8 @@ import { DollRepository } from '@/main/dolls/repository';
 import { PriceRepository } from '@/main/prices/repository';
 import { PriceService } from '@/main/prices/service';
 import type { CatalogEntry } from '@/main/catalog/repository';
+import { CatalogRepository } from '@/main/catalog/repository';
+import { CatalogRegionEvidenceRepository } from '@/main/catalog/region-evidence-repository';
 import type { CollectorDollResult, CollectorRequestInput } from '@/collector/contracts';
 
 describe('PriceService', () => {
@@ -87,8 +89,19 @@ describe('PriceService', () => {
 
   it('continues with other marketplaces after one regional collector failure', async () => {
     db = new DatabaseSync(':memory:'); runMigrations(db);
-    const doll = new DollRepository(db).create({ name: 'Willow Thorne', mattelSku: 'JMB92' });
+    const dolls = new DollRepository(db);
+    const catalog = new CatalogRepository(db, dolls);
+    catalog.importSeed([{
+      mattelSku: 'JMB92', name: 'Willow Thorne', characterName: 'Willow Thorne', lineName: 'Moonspell Magic',
+      productType: 'regular', monitorStatus: 'active', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'],
+      searchQuery: 'Monster High JMB92', sourceUrl: 'https://shop.mattel.com/products/jmb92',
+      sourceCheckedAt: '2026-07-10', evidence: 'test', officialName: 'Monster High Willow Thorne Doll',
+      mattelUrl: 'https://shop.mattel.com/products/jmb92', mattelImageUrl: 'https://cdn.shopify.com/jmb92.jpg',
+    }]);
+    const entry = catalog.getBySku('JMB92')!;
+    const doll = dolls.get(entry.dollId!)!;
     const prices = new PriceRepository(db);
+    const regionEvidence = new CatalogRegionEvidenceRepository(db);
     const collector = { refreshDoll: vi.fn(async (input: CollectorRequestInput) => {
       const region = input.regions[0]!;
       if (region === 'amazon_us') throw new Error('US timeout');
@@ -97,13 +110,16 @@ describe('PriceService', () => {
         regions: { amazon_es: { status: 'verified', region: 'amazon_es', asin: 'B0G43YKFL4', title: 'Moonspell Magic Willow Thorne JMB92', regularPrice: { minor: 2999, currency: 'EUR' as const }, primePrice: null, subscriptionPrice: null, couponText: null, seller: null, fulfilledByAmazon: false, availability: 'in_stock' as const, condition: 'New' as const, url: 'https://www.amazon.es/dp/B0G43YKFL4', evidenceUrl: 'https://www.amazon.es/dp/B0G43YKFL4', reviewCandidates: [] } },
       } as CollectorDollResult;
     }) };
-    const service = new PriceService({ db, prices, collector, dataDir: 'C:/data', getRate: () => 600_000_000 });
-    const entry: CatalogEntry = { mattelSku: 'JMB92', name: 'Willow Thorne', characterName: 'Willow Thorne', lineName: 'Moonspell Magic', productType: 'regular', monitorStatus: 'active', requiredTerms: ['Willow Thorne'], rejectTerms: ['outfit'], searchQuery: 'Monster High JMB92', sourceUrl: null, sourceCheckedAt: '2026-07-10', evidence: 'test', dollId: doll.id };
+    const service = new PriceService({ db, prices, regionEvidence, collector, dataDir: 'C:/data', getRate: () => 600_000_000 });
 
     await expect(service.refreshCatalogEntry(entry, ['amazon_us', 'amazon_es'])).rejects.toThrow('amazon_us');
 
     expect(collector.refreshDoll).toHaveBeenCalledTimes(2);
     expect(prices.current(doll.id)).toContainEqual(expect.objectContaining({ region: 'amazon_es', priceMinor: 2999 }));
+    expect(regionEvidence.listForDoll(doll.id)).toEqual([
+      expect.objectContaining({ region: 'amazon_es', status: 'verified', evidenceUrl: 'https://www.amazon.es/dp/B0G43YKFL4' }),
+      expect.objectContaining({ region: 'amazon_us', status: 'network_error', evidenceUrl: 'https://www.amazon.com/s?k=JMB92' }),
+    ]);
   });
 
   it('records a no-price check for a confirmed listing instead of leaving the result invisible', async () => {
