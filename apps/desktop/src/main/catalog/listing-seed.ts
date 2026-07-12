@@ -23,7 +23,12 @@ const domains: Record<AmazonRegion, string> = {
   amazon_it: 'www.amazon.it',
 };
 
-const products: readonly { mattelSku: string; asin: string; regions: readonly AmazonRegion[] }[] = [
+const products: readonly {
+  mattelSku: string;
+  asin: string;
+  regions: readonly AmazonRegion[];
+  urls?: Partial<Record<AmazonRegion, string>>;
+}[] = [
   { mattelSku: 'HXH76', asin: 'B0CMGDLQC9', regions: allRegions },
   { mattelSku: 'HYV64', asin: 'B0D7PTM9VR', regions: allRegions },
   { mattelSku: 'JHK29', asin: 'B0FDH4G8TV', regions: allRegions },
@@ -44,7 +49,10 @@ const products: readonly { mattelSku: string; asin: string; regions: readonly Am
   { mattelSku: 'JHK46', asin: 'B0G44LN98J', regions: allRegions },
   { mattelSku: 'JHK57', asin: 'B0FK1NN8N5', regions: allRegions },
   { mattelSku: 'JKD76', asin: 'B0G43TN8YC', regions: allRegions },
-  { mattelSku: 'JMB81', asin: 'B0FJZYDKX9', regions: allRegions },
+  {
+    mattelSku: 'JMB81', asin: 'B0FJZYDKX9', regions: allRegions,
+    urls: { amazon_it: 'https://www.amazon.it/Monster-High-camicetta-domestico-accessori/dp/B0FJZYDKX9?th=1' },
+  },
   { mattelSku: 'JMG65', asin: 'B0G27XGD8G', regions: ['amazon_de', 'amazon_es', 'amazon_it'] },
   { mattelSku: 'JMG66', asin: 'B0G27VB4Z7', regions: ['amazon_de', 'amazon_es', 'amazon_it'] },
   { mattelSku: 'JMG73', asin: 'B0G28B9NGD', regions: allRegions },
@@ -55,13 +63,13 @@ export const verifiedAmazonListings: readonly VerifiedAmazonListingSeed[] = prod
   mattelSku: product.mattelSku,
   region,
   asin: product.asin,
-  url: `https://${domains[region]}/dp/${product.asin}`,
+  url: product.urls?.[region] ?? `https://${domains[region]}/dp/${product.asin}`,
   verifiedAt: '2026-07-12',
 })));
 
 export function seedVerifiedAmazonListings(dependencies: {
   catalog: Pick<CatalogRepository, 'listAll'>;
-  prices: Pick<PriceRepository, 'ensureListing'>;
+  prices: Pick<PriceRepository, 'upsertTrustedListing'>;
 }): void {
   const unique = new Set<string>();
   for (const listing of verifiedAmazonListings) {
@@ -75,15 +83,11 @@ export function seedVerifiedAmazonListings(dependencies: {
   for (const listing of verifiedAmazonListings) {
     const dollId = entriesBySku.get(listing.mattelSku)?.dollId;
     if (!dollId) continue;
-    dependencies.prices.ensureListing({
+    dependencies.prices.upsertTrustedListing({
       dollId,
       region: listing.region,
       asin: listing.asin,
       url: listing.url,
-      status: 'confirmed',
-      confirmationSource: 'exact_id',
-      matchScore: 100,
-      matchReasons: ['live_verified_sku_asin'],
     });
   }
 }

@@ -57,6 +57,23 @@ export class PriceRepository {
     return this.getListing(id)!;
   }
 
+  upsertTrustedListing(input: { dollId: string; region: AmazonRegion; asin: string; url: string }): AmazonListing {
+    const listing = this.ensureListing({
+      ...input,
+      status: 'confirmed',
+      confirmationSource: 'exact_id',
+      matchScore: 100,
+      matchReasons: ['live_verified_sku_asin'],
+    });
+    this.db.prepare(`
+      update amazon_listings
+      set url = ?, status = 'confirmed', confirmation_source = 'exact_id',
+          match_score = 100, match_reasons_json = ?, updated_at = ?
+      where id = ?
+    `).run(input.url, JSON.stringify(['live_verified_sku_asin']), new Date().toISOString(), listing.id);
+    return this.getListing(listing.id)!;
+  }
+
   getListing(id: string): AmazonListing | null {
     const row = this.db.prepare('select * from amazon_listings where id = ?').get(id) as Row | undefined;
     return row ? mapListing(row) : null;

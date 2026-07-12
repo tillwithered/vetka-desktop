@@ -145,6 +145,23 @@ describe('CatalogRepository', () => {
     expect(catalog.listActive().find((entry) => entry.mattelSku === 'HXH76')).toBeTruthy();
   });
 
+  it('repairs an existing JMB81 Italy listing with the verified price-bearing URL', () => {
+    catalog.importSeed(monsterHighSkuCatalog);
+    const prices = new PriceRepository(db);
+    const robecca = catalog.listAll().find((entry) => entry.mattelSku === 'JMB81')!;
+    prices.ensureListing({
+      dollId: robecca.dollId!, region: 'amazon_it', asin: 'B0FJZYDKX9',
+      url: 'https://www.amazon.it/dp/B0FJZYDKX9', status: 'candidate',
+    });
+
+    seedVerifiedAmazonListings({ catalog, prices });
+
+    expect(prices.listListings(robecca.dollId!)).toContainEqual(expect.objectContaining({
+      region: 'amazon_it', asin: 'B0FJZYDKX9', status: 'confirmed', confirmationSource: 'exact_id',
+      url: 'https://www.amazon.it/Monster-High-camicetta-domestico-accessori/dp/B0FJZYDKX9?th=1',
+    }));
+  });
+
   it('keeps trusted Amazon mappings unique and canonical by SKU and region', () => {
     const keys = new Set<string>();
     for (const listing of verifiedAmazonListings) {
