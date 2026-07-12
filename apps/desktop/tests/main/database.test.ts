@@ -17,6 +17,7 @@ describe('V0 migration', () => {
     expect(names).toEqual(
       expect.arrayContaining([
         'amazon_listings',
+        'catalog_region_evidence',
         'collectibles',
         'collectibles_scan_state',
         'dolls',
@@ -29,7 +30,7 @@ describe('V0 migration', () => {
       ]),
     );
     expect(db.prepare('pragma foreign_keys').get()).toEqual({ foreign_keys: 1 });
-    expect(db.prepare('select max(version) as version from schema_migrations').get()).toEqual({ version: 6 });
+    expect(db.prepare('select max(version) as version from schema_migrations').get()).toEqual({ version: 7 });
     expect(db.prepare("pragma table_info('dolls')").all()).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'official_name' }),
       expect.objectContaining({ name: 'mattel_url' }),

@@ -6,6 +6,7 @@ import migrationKztPrices from './migrations/0003_kzt_prices.sql?raw';
 import migrationStoreCardAvailability from './migrations/0004_store_card_availability.sql?raw';
 import migrationDollCatalogIdentity from './migrations/0005_doll_catalog_identity.sql?raw';
 import migrationCollectorCatalog from './migrations/0006_collector_catalog.sql?raw';
+import migrationCatalogRegionEvidence from './migrations/0007_catalog_region_evidence.sql?raw';
 
 export function runMigrations(db: DatabaseSync): void {
   db.exec('PRAGMA foreign_keys = ON');
@@ -39,6 +40,11 @@ export function runMigrations(db: DatabaseSync): void {
     if (!collectorCatalogApplied) {
       db.exec(migrationCollectorCatalog);
       db.prepare('insert into schema_migrations (version, applied_at) values (?, ?)').run(6, new Date().toISOString());
+    }
+    const catalogRegionEvidenceApplied = db.prepare('select 1 from schema_migrations where version = 7').get();
+    if (!catalogRegionEvidenceApplied) {
+      db.exec(migrationCatalogRegionEvidence);
+      db.prepare('insert into schema_migrations (version, applied_at) values (?, ?)').run(7, new Date().toISOString());
     }
     db.exec('COMMIT');
   } catch (error) {
