@@ -34,7 +34,7 @@ export function CatalogScanStatus() {
   return <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm">
     <div className="min-w-0 space-y-1">
       <div className="flex items-center gap-2"><span className="text-sm font-medium">Проверка цен</span><Badge variant={running ? 'default' : 'secondary'}>{running ? `Проверяются цены: ${state?.processed ?? 0} из ${state?.total ?? 0}` : 'По расписанию: раз в день'}</Badge></div>
-      <p className="text-xs text-muted-foreground">{running ? 'Проверяются подтверждённые карточки Amazon.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
+      <p className="text-xs text-muted-foreground">{running ? 'Ищу новые карточки Amazon и обновляю найденные цены.' : `Следующая проверка: ${displayTime(state?.nextRunAt ?? null)}`}</p>
       {state?.lastError && <p role="alert" className="text-xs text-destructive">{state.lastError}</p>}
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>

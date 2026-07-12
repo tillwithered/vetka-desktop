@@ -23,6 +23,7 @@ describe('CatalogScanStatus', () => {
     window.vetka.catalog.getScanState = async () => ({ ok: true, data: { status: 'running', phase: 'catalog_scan', region: null, startedAt: '2026-07-10T10:00:00.000Z', completedAt: null, nextRunAt: null, processed: 2, total: 29 } });
     render(<CatalogScanStatus />);
     expect(await screen.findByText('Проверяются цены: 2 из 29')).toBeVisible();
+    expect(screen.getAllByText('Ищу новые карточки Amazon и обновляю найденные цены.').at(-1)).toBeVisible();
   });
 
   it('explains that idle pricing is scheduled once per day', async () => {
