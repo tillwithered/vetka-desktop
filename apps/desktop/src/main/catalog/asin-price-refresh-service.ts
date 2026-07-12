@@ -5,30 +5,32 @@ import type { PriceService } from '@/main/prices/service';
 
 export class AsinPriceRefreshService {
   constructor(private readonly dependencies: {
-    catalog: Pick<CatalogRepository, 'listActive'>;
-    prices: Pick<PriceRepository, 'listListings'>;
-    priceService: Pick<PriceService, 'refreshCatalogEntry'>;
+    catalog: Pick<CatalogRepository, 'listAll'>;
+    prices: Pick<PriceRepository, 'listDollIdsWithConfirmedListings'>;
+    priceService: Pick<PriceService, 'refreshCatalogEntry' | 'refreshDoll'>;
   }) {}
 
   async run(
     regions: readonly AmazonRegion[],
-    onProgress?: (event: { processed: number; total: number; entry: CatalogEntry }) => void,
+    onProgress?: (event: { processed: number; total: number; dollId: string; entry: CatalogEntry | null }) => void,
   ): Promise<{ processed: number; total: number; errors: string[] }> {
-    const entries = this.dependencies.catalog.listActive().filter((entry) => (
-      entry.dollId !== null
-      && this.dependencies.prices.listListings(entry.dollId).some((listing) => listing.status === 'confirmed')
-    ));
+    const entriesByDollId = new Map(this.dependencies.catalog.listAll()
+      .filter((entry): entry is CatalogEntry & { dollId: string } => entry.dollId !== null)
+      .map((entry) => [entry.dollId, entry]));
+    const dollIds = this.dependencies.prices.listDollIdsWithConfirmedListings();
     const errors: string[] = [];
 
-    for (const [index, entry] of entries.entries()) {
+    for (const [index, dollId] of dollIds.entries()) {
+      const entry = entriesByDollId.get(dollId) ?? null;
       try {
-        await this.dependencies.priceService.refreshCatalogEntry(entry, [...regions]);
+        if (entry) await this.dependencies.priceService.refreshCatalogEntry(entry, [...regions]);
+        else await this.dependencies.priceService.refreshDoll(dollId, [...regions]);
       } catch {
-        errors.push(`${entry.mattelSku}: price refresh failed`);
+        errors.push(`${entry?.mattelSku ?? dollId}: price refresh failed`);
       }
-      onProgress?.({ processed: index + 1, total: entries.length, entry });
+      onProgress?.({ processed: index + 1, total: dollIds.length, dollId, entry });
     }
 
-    return { processed: entries.length, total: entries.length, errors };
+    return { processed: dollIds.length, total: dollIds.length, errors };
   }
 }

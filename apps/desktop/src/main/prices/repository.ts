@@ -71,6 +71,15 @@ export class PriceRepository {
     return (this.db.prepare('select * from amazon_listings where doll_id = ? order by region, created_at').all(dollId) as Row[]).map(mapListing);
   }
 
+  listDollIdsWithConfirmedListings(): string[] {
+    return (this.db.prepare(`
+      select distinct doll_id
+      from amazon_listings
+      where status = 'confirmed'
+      order by doll_id
+    `).all() as Array<{ doll_id: string }>).map((row) => row.doll_id);
+  }
+
   reviewCandidate(listingId: string, decision: 'confirm' | 'reject'): AmazonListing {
     this.db.prepare('update amazon_listings set status = ?, confirmation_source = ?, updated_at = ? where id = ?')
       .run(decision === 'confirm' ? 'confirmed' : 'rejected', decision === 'confirm' ? 'manual' : null, new Date().toISOString(), listingId);

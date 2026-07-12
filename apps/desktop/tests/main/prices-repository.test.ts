@@ -61,6 +61,15 @@ describe('PriceRepository', () => {
     expect(prices.getListing(listingId)).toMatchObject({ status: 'confirmed', confirmationSource: 'manual' });
   });
 
+  it('lists each doll that has at least one confirmed ASIN for the daily refresh', () => {
+    const secondDollId = new DollRepository(db).create({ name: 'Clawdeen Wolf' }).id;
+    prices.ensureListing({ dollId: secondDollId, region: 'amazon_uk', asin: 'B0SEC00001', url: 'https://www.amazon.co.uk/dp/B0SEC00001', status: 'confirmed', confirmationSource: 'manual' });
+    prices.ensureListing({ dollId: secondDollId, region: 'amazon_es', asin: 'B0SEC00001', url: 'https://www.amazon.es/dp/B0SEC00001', status: 'candidate' });
+    prices.ensureListing({ dollId, region: 'amazon_de', asin: 'B0FROZEN01', url: 'https://www.amazon.de/dp/B0FROZEN01', status: 'frozen' });
+
+    expect(prices.listDollIdsWithConfirmedListings()).toEqual([dollId, secondDollId].sort());
+  });
+
   it('groups current verified offers for multiple dolls in one catalog summary', () => {
     prices.applyCheck({ listingId, status: 'verified', checkedAt: '2026-07-10T10:00:00Z', offer: { offerKind: 'regular', priceMinor: 2499, currency: 'USD', shippingMinor: 0, sellerName: 'Amazon.com', fulfilledByAmazon: true, availability: 'in_stock', condition: 'New', couponText: null, rateToKztMicros: 514_200_000 } });
     const secondDollId = new DollRepository(db).create({ name: 'Clawdeen Wolf' }).id;
