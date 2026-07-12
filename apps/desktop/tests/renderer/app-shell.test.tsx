@@ -10,6 +10,7 @@ describe('App shell', () => {
     expect(screen.getByRole('navigation')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Избранное' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Куклы' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Коллекционки' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Заказы' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Настройки' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Добавить куклу' }).length).toBeGreaterThan(0);

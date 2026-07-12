@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CalculatorIcon, HeartIcon, PackageSearchIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
+import { CalculatorIcon, GemIcon, HeartIcon, PackageSearchIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import type { UpdateState } from '@/shared/contracts';
 const destinations = [
   { label: 'Избранное', href: '/', icon: HeartIcon },
   { label: 'Куклы', href: '/dolls', icon: PackageSearchIcon },
+  { label: 'Коллекционки', href: '/collectibles', icon: GemIcon },
   { label: 'Заказы', href: '/orders', icon: CalculatorIcon },
   { label: 'Настройки', href: '/settings', icon: SettingsIcon },
 ] as const;
