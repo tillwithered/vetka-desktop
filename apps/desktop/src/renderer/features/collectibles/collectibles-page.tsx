@@ -33,7 +33,7 @@ export function CollectiblesPage() {
     if (state.status === 'idle') void client.invalidateQueries({ queryKey: ['collectibles'] });
   }), [client]);
 
-  return <section className="flex flex-1 flex-col gap-6 p-6">
+  return <section className="flex min-w-0 flex-1 flex-col gap-6 p-6">
     <PageHeader title="Коллекционки" description="Актуальные и архивные релизы Monster High с Mattel Creations" />
     <CollectiblesScanStatus state={scan.data} pending={refresh.isPending} onRefresh={() => refresh.mutate()} />
     <PageToolbar>
@@ -43,7 +43,7 @@ export function CollectiblesPage() {
     </PageToolbar>
     {(items.error || refresh.error) && <Alert variant="destructive"><AlertTitle>Не удалось загрузить коллекционки</AlertTitle><AlertDescription>Последние сохранённые данные останутся в каталоге.</AlertDescription></Alert>}
     {items.isLoading ? <TableSurface><div className="space-y-3 p-4"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div></TableSurface>
-      : items.data?.length ? <TableSurface><CollectiblesTable items={items.data} /></TableSurface>
+      : items.data?.length ? <TableSurface className="min-w-0 max-w-full"><CollectiblesTable items={items.data} /></TableSurface>
         : <EmptyState icon={GemIcon} title={query ? 'Ничего не найдено' : archived ? 'Архив пока пуст' : 'Коллекционок пока нет'} description={query ? 'Измените поисковый запрос.' : 'Нажмите «Обновить сейчас», чтобы получить официальный каталог Mattel Creations.'} />}
   </section>;
 }

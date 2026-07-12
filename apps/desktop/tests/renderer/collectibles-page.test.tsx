@@ -31,8 +31,15 @@ describe('CollectiblesPage', () => {
     renderPage();
 
     expect(await screen.findByText('Гозер — Skullector')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Коллекционки' }).closest('section')).toHaveClass('min-w-0');
+    expect(screen.getByRole('columnheader', { name: 'Коллекционка' })).toHaveClass('w-[36%]');
+    expect(screen.getByRole('columnheader', { name: 'Серия' })).toHaveClass('hidden', 'xl:table-cell');
+    expect(screen.getByRole('columnheader', { name: 'Проверено' })).toHaveClass('hidden', 'xl:table-cell');
+    expect(screen.getByText('Skullector x Ghostbusters').closest('td')).toHaveClass('hidden', 'xl:table-cell');
+    expect(screen.getByText('12.07.2026').closest('td')).toHaveClass('hidden', 'xl:table-cell');
     expect(screen.getByText('В продаже')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Открыть на Mattel' })).toHaveAttribute('href', gozer.canonicalUrl);
+    expect(screen.getByRole('link', { name: 'Открыть на Mattel' })).toHaveTextContent(/^Mattel$/);
     await user.click(screen.getByRole('tab', { name: 'Архив' }));
     expect(await screen.findByText('Битлджус — Skullector')).toBeVisible();
     expect(screen.getByText('Распродано')).toBeVisible();
