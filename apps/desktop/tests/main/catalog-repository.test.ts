@@ -82,6 +82,22 @@ describe('CatalogRepository', () => {
     expect(dolls.get(willow.id)).toMatchObject({ imagePath: 'C:/manual/willow.jpg', imageSource: 'manual' });
   });
 
+  it('does not clear manual official identity when a registry entry has no verified Mattel page', () => {
+    const manual = dolls.create({
+      name: 'Ручная Салли', mattelSku: 'HNF99',
+      officialName: 'Manual Nightmare Before Christmas title',
+      mattelUrl: 'https://shop.mattel.com/products/manual-nightmare',
+    });
+    const unsupported = monsterHighSkuCatalog.find((entry) => entry.mattelSku === 'HNF99')!;
+
+    catalog.importSeed([unsupported]);
+
+    expect(dolls.get(manual.id)).toMatchObject({
+      officialName: 'Manual Nightmare Before Christmas title',
+      mattelUrl: 'https://shop.mattel.com/products/manual-nightmare',
+    });
+  });
+
   it('validates a whole import before writing any row', () => {
     expect(() => catalog.importSeed([{ ...seed[0], mattelSku: '' }])).toThrow('Invalid catalog entry');
     expect(catalog.listActive()).toEqual([]);

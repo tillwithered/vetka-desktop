@@ -152,7 +152,7 @@ export class DollRepository {
     const now = new Date().toISOString();
     this.db.prepare(`
       update dolls set
-        name = ?, character_name = ?, line_name = ?, mattel_sku = ?, official_name = ?, mattel_url = ?,
+        name = ?, character_name = ?, line_name = ?, mattel_sku = ?, official_name = coalesce(?, official_name), mattel_url = coalesce(?, mattel_url),
         image_path = case when ? is not null and (image_source is null or image_source = 'amazon') then ? else image_path end,
         image_source = case when ? is not null and (image_source is null or image_source = 'amazon') then 'mattel' else image_source end,
         updated_at = ?
